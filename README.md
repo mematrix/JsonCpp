@@ -1,2 +1,2 @@
 # JsonCpp
-a c++ parser of json.
+A `c++` parser of `json`. *Only for study*.
