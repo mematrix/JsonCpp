@@ -7,18 +7,10 @@
 
 #include <string>
 
+#include "JsonUtil.h"
+
 namespace JsonCpp
 {
-    enum JValueType
-    {
-        null,
-        boolean,
-        number,
-        string,
-        object,
-        array
-    };
-
     class JToken
     {
     protected:
