@@ -6,6 +6,7 @@
 #define CPPPARSER_JOBJECT_H
 
 #include <string>
+#include <memory>
 #include <map>
 
 #include "JToken.h"
@@ -15,12 +16,12 @@ namespace JsonCpp
     class JObject : public JToken
     {
     private:
-        std::map<std::string, JToken> children;
+        std::map<std::string, std::unique_ptr<JToken>> children;
 
-        void Parse(const std::string& str);
+        const char *Parse(const char *str);
 
     public:
-        JObject(const std::string& str) { Parse(str); }
+        JObject(const char **str) { *str = Parse(*str); }
     };
 }
 
