@@ -5,6 +5,8 @@
 #ifndef CPPPARSER_JSONREADER_H
 #define CPPPARSER_JSONREADER_H
 
+#include <memory>
+
 #include "JToken.h"
 
 namespace JsonCpp
@@ -13,11 +15,11 @@ namespace JsonCpp
     {
     public:
         /**
-         * @param str 字符串开始位置
-         * @param pToken 如果读取成功,返回new JToken对象
-         * @return 读取结束后字符串指针,如果读取到字符串结尾,则返回null
+         * @param str 字符串指针,传入字符串开始位置;读取成功后,将会被设置为结束后下一个字符位置
+         * @return 一个unique_ptr值,其中包装了new JToken对象
+         * @exception JsonException
          */
-        static const char* ReadToken(const char *str, JToken **pToken);
+        static std::unique_ptr<JToken> &ReadToken(const char **str);
     };
 }
 
