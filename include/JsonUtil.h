@@ -10,8 +10,12 @@
 #include "JValueType.h"
 #include "JsonException.h"
 
+#define MAKE_VALUE_TYPE_STR(infoStr) Invalid character when parse json_##infoStr
+
+#define MAKE_STR(str) #str
+
 #define MAKE_VALUE_TYPE_INFO(type, infoStr) \
-    template<> struct Info<type> { static const char*GetInfo() { return "Invalid character when parse json "##infoStr; } }
+    template<> struct Info<type> { static const char*GetInfo() { return MAKE_STR(MAKE_VALUE_TYPE_STR(infoStr)); } }
 
 namespace JsonCpp
 {
@@ -56,6 +60,14 @@ namespace JsonCpp
             }
         }
 
+        static void AssertEndStr(const char *str)
+        {
+            str = SkipWhiteSpace(str);
+            if (*str != '\0')
+            {
+                throw JsonException("Incorrect json string");
+            }
+        }
     };
 }
 
