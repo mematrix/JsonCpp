@@ -1,5 +1,5 @@
 set(JSONCPP_SOURCE
-        JObject.cpp)
+        JObject.cpp JArray.cpp)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
