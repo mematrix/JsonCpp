@@ -5,7 +5,6 @@
 #include <string>
 
 #include "JObject.h"
-#include "JsonReader.h"
 
 using namespace JsonCpp;
 using pToken = std::unique_ptr<JToken>;
@@ -13,11 +12,11 @@ using tokenItem = std::pair<std::string, pToken>;
 
 const char *JObject::Parse(const char *str)
 {
+    str = JsonUtil::SkipWhiteSpace(str);
+    JsonUtil::AssertEqual<JValueType::object>(*str, '{');
+
     while (true)
     {
-        str = JsonUtil::SkipWhiteSpace(str);
-        JsonUtil::AssertEqual<JValueType::object>(*str, '{');
-
         str = JsonUtil::SkipWhiteSpace(str, 1);
         JsonUtil::AssertEqual<JValueType::object>(*str, '\"');
 
@@ -27,9 +26,8 @@ const char *JObject::Parse(const char *str)
 
         str = JsonUtil::SkipWhiteSpace(end, 1);
         JsonUtil::AssertEqual<JValueType::object>(*str, ':');
-        JToken *token = nullptr;
-        str = JsonReader::ReadToken(str + 1, &token);
-        auto ret = children.insert(tokenItem(key, pToken(token)));
+        ++str;
+        auto ret = children.insert(tokenItem(key, JsonReader::ReadToken(&str)));
         JsonUtil::Assert(ret.second);
 
         str = JsonUtil::SkipWhiteSpace(str);
