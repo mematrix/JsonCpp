@@ -10,15 +10,21 @@ const char *JArray::Parse(const char *str)
 {
     str = JsonUtil::SkipWhiteSpace(str);
     JsonUtil::AssertEqual(*str, '[');
+    // empty array
+    str = JsonUtil::SkipWhiteSpace(str, 1);
+    if (*str == ']')
+    {
+        return str + 1;
+    }
 
     while (true)
     {
-        ++str;
         children.push_back(JsonReader::ReadToken(&str));
 
         str = JsonUtil::SkipWhiteSpace(str);
         if (*str == ',')
         {
+            ++str;
             continue;
         }
 
