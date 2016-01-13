@@ -14,15 +14,20 @@ const char *JObject::Parse(const char *str)
 {
     str = JsonUtil::SkipWhiteSpace(str);
     JsonUtil::AssertEqual<JValueType::object>(*str, '{');
+    // empty object
+    str = JsonUtil::SkipWhiteSpace(str, 1);
+    if (*str == '}')
+    {
+        return str + 1;
+    }
 
     while (true)
     {
-        str = JsonUtil::SkipWhiteSpace(str, 1);
         JsonUtil::AssertEqual<JValueType::object>(*str, '\"');
 
         ++str;
         auto end = strchr(str, '\"');
-        std::string key(str, end - str);
+        std::string key(str, end - str);        // TODO: handle escape character
 
         str = JsonUtil::SkipWhiteSpace(end, 1);
         JsonUtil::AssertEqual<JValueType::object>(*str, ':');
@@ -33,7 +38,7 @@ const char *JObject::Parse(const char *str)
         str = JsonUtil::SkipWhiteSpace(str);
         if (*str == ',')
         {
-            ++str;
+            str = JsonUtil::SkipWhiteSpace(str, 1);
             continue;
         }
         JsonUtil::Assert(*str == '}');

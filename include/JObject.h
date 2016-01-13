@@ -5,7 +5,6 @@
 #ifndef CPPPARSER_JOBJECT_H
 #define CPPPARSER_JOBJECT_H
 
-#include <string>
 #include <memory>
 #include <map>
 

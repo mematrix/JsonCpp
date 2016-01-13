@@ -5,8 +5,6 @@
 #ifndef CPPPARSER_JSONREADER_H
 #define CPPPARSER_JSONREADER_H
 
-#include <memory>
-
 #include "JToken.h"
 
 namespace JsonCpp
