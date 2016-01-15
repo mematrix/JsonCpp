@@ -24,12 +24,10 @@ const char *JObject::Parse(const char *str)
     while (true)
     {
         JsonUtil::AssertEqual<JValueType::object>(*str, '\"');
-
         ++str;
-        auto end = strchr(str, '\"');
-        std::string key(str, end - str);        // TODO: handle escape character
+        std::string key(JsonReader::ReadString(&str));
 
-        str = JsonUtil::SkipWhiteSpace(end, 1);
+        str = JsonUtil::SkipWhiteSpace(str);
         JsonUtil::AssertEqual<JValueType::object>(*str, ':');
         ++str;
         auto ret = children.insert(tokenItem(key, JsonReader::ReadToken(&str)));
