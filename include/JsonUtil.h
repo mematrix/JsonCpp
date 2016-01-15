@@ -22,20 +22,17 @@ namespace JsonCpp
     template<JValueType type>
     struct Info
     {
-        static const char *GetInfo() { return "Unknown"; }
+        static const char *GetInfo() { return "Error when parse json value"; }
     };
 
     MAKE_VALUE_TYPE_INFO(JValueType::object, "object");
 
     MAKE_VALUE_TYPE_INFO(JValueType::array, "array");
 
-    class JsonUtil
+    struct JsonUtil
     {
-    public:
-        static const char *SkipWhiteSpace(const char *str, unsigned int start = 0)
+        static const char *SkipWhiteSpace(const char *str)
         {
-            str += start;
-
             while (std::isspace(*str))
             {
                 ++str;
@@ -43,7 +40,14 @@ namespace JsonCpp
             return str;
         }
 
-        template<JValueType type>
+        static const char *SkipWhiteSpace(const char *str, unsigned int start)
+        {
+            str += start;
+
+            return SkipWhiteSpace(str);
+        }
+
+        template<JValueType type = JValueType::null>
         static void AssertEqual(char a, char b)
         {
             if (a != b)
@@ -67,6 +71,31 @@ namespace JsonCpp
             {
                 throw JsonException("Incorrect json string");
             }
+        }
+
+
+        static int Unicode2ToUtf8(unsigned short uChar, char *utf8Str)
+        {
+            if (uChar <= 0x007f)
+            {
+                // * U-00000000 - U-0000007F:  0xxxxxxx
+                *utf8Str = static_cast<char>(uChar);
+                return 1;
+            }
+
+            if (uChar <= 0x07ff)
+            {
+                // * U-00000080 - U-000007FF:  110xxxxx 10xxxxxx
+                utf8Str[1] = static_cast<char>((uChar & 0x3f) | 0x80);
+                utf8Str[0] = static_cast<char>(((uChar >> 6) & 0x1f) | 0xc0);
+                return 2;
+            }
+
+            // * U-00000800 - U-0000FFFF:  1110xxxx 10xxxxxx 10xxxxxx
+            utf8Str[2] = static_cast<char>((uChar & 0x3f) | 0x80);
+            utf8Str[1] = static_cast<char>(((uChar >> 6) & 0x3f) | 0x80);
+            utf8Str[0] = static_cast<char>(((uChar >> 12) & 0x0f) | 0xe0);
+            return 3;
         }
     };
 }
