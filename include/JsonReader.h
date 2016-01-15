@@ -17,7 +17,9 @@ namespace JsonCpp
          * @return 一个unique_ptr值,其中包装了new JToken对象
          * @exception JsonException
          */
-        static std::unique_ptr<JToken> &ReadToken(const char **str);
+        static std::unique_ptr<JToken> ReadToken(const char **str);
+
+        static std::string ReadString(const char **str);
     };
 }
 
