@@ -18,6 +18,7 @@ namespace JsonCpp
         friend class JsonReader;
 
         std::map<std::string, std::unique_ptr<JToken>> children;
+        mutable std::string *objString;
 
         JObject() { }
 
@@ -29,6 +30,36 @@ namespace JsonCpp
             auto end = Parse(str);
             JsonUtil::AssertEndStr(end);
         }
+
+        ~JObject()
+        {
+            if (objString != nullptr)
+            {
+                delete objString;
+                objString = nullptr;
+            }
+        }
+
+        virtual JValueType GetType() const override;
+
+        // use to get value
+        virtual operator bool() const override;
+
+        virtual operator double() const override;
+
+        virtual operator std::string() const override;
+
+        // use to access
+        virtual const JToken &operator[](const std::string &) const override;
+
+        virtual const JToken &operator[](long) const override;
+
+        virtual const JToken &GetValue(const std::string &) const override;
+
+        virtual const JToken &GetValue(long) const override;
+
+        // for format
+        virtual const std::string &ToString() const override;
     };
 }
 
