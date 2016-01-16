@@ -10,7 +10,7 @@
 #include "JValueType.h"
 #include "JsonException.h"
 
-#define MAKE_VALUE_TYPE_STR(infoStr) Invalid character when parse json_##infoStr
+#define MAKE_VALUE_TYPE_STR(infoStr) Invalid character when parse json##infoStr
 
 #define MAKE_STR(str) #str
 
@@ -25,9 +25,9 @@ namespace JsonCpp
         static const char *GetInfo() { return "Error when parse json value"; }
     };
 
-    MAKE_VALUE_TYPE_INFO(JValueType::object, "object");
+    MAKE_VALUE_TYPE_INFO(JValueType::object, _object);
 
-    MAKE_VALUE_TYPE_INFO(JValueType::array, "array");
+    MAKE_VALUE_TYPE_INFO(JValueType::array, _array);
 
     struct JsonUtil
     {
