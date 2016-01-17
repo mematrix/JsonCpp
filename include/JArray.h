@@ -18,6 +18,7 @@ namespace JsonCpp
         friend class JsonReader;
 
         std::vector<std::unique_ptr<JToken>> children;
+        mutable std::string *aryString;
 
         JArray() { }
 
@@ -30,26 +31,35 @@ namespace JsonCpp
             JsonUtil::AssertEndStr(end);
         }
 
-        virtual JValueType GetType() const = 0;
+        ~JArray()
+        {
+            if (nullptr != aryString)
+            {
+                delete aryString;
+                aryString = nullptr;
+            }
+        }
+
+        virtual JValueType GetType() const override;
 
         // use to get value
-        virtual operator bool() const = 0;
+        virtual operator bool() const override;
 
-        virtual operator double() const = 0;
+        virtual operator double() const override;
 
-        virtual operator std::string() const = 0;
+        virtual operator std::string() const override;
 
         // use to access
-        virtual const JToken &operator[](const std::string &) const = 0;
+        virtual const JToken &operator[](const std::string &) const override;
 
-        virtual const JToken &operator[](long) const = 0;
+        virtual const JToken &operator[](unsigned long) const override;
 
-        virtual const JToken &GetValue(const std::string &) const = 0;
+        virtual const JToken &GetValue(const std::string &) const override;
 
-        virtual const JToken &GetValue(long) const = 0;
+        virtual const JToken &GetValue(unsigned long) const override;
 
         // for format
-        virtual const std::string &ToString() const = 0;
+        virtual const std::string &ToString() const override;
     };
 }
 
