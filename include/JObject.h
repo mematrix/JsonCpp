@@ -52,11 +52,11 @@ namespace JsonCpp
         // use to access
         virtual const JToken &operator[](const std::string &) const override;
 
-        virtual const JToken &operator[](long) const override;
+        virtual const JToken &operator[](unsigned long) const override;
 
         virtual const JToken &GetValue(const std::string &) const override;
 
-        virtual const JToken &GetValue(long) const override;
+        virtual const JToken &GetValue(unsigned long) const override;
 
         // for format
         virtual const std::string &ToString() const override;

@@ -28,11 +28,11 @@ namespace JsonCpp
         // use to access
         virtual const JToken &operator[](const std::string &) const = 0;
 
-        virtual const JToken &operator[](long) const = 0;
+        virtual const JToken &operator[](unsigned long) const = 0;
 
         virtual const JToken &GetValue(const std::string &) const = 0;
 
-        virtual const JToken &GetValue(long) const = 0;
+        virtual const JToken &GetValue(unsigned long) const = 0;
 
         // for format
         virtual const std::string &ToString() const = 0;
