@@ -71,7 +71,7 @@ const JToken &JObject::operator[](const std::string &str) const
     return GetValue(str);
 }
 
-const JToken &JObject::operator[](long index) const
+const JToken &JObject::operator[](unsigned long index) const
 {
     return GetValue(index);
 }
@@ -81,7 +81,7 @@ const JToken &JObject::GetValue(const std::string &str) const
     return *(children.at(str).get());
 }
 
-const JToken &JObject::GetValue(long) const
+const JToken &JObject::GetValue(unsigned long) const
 {
     throw JsonException("Access not support");
 }
