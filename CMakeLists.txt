@@ -3,5 +3,6 @@ project(JSONCPP)
 
 include_directories(${JSONCPP_SOURCE_DIR}/include)
 add_subdirectory(src)
+add_subdirectory(test)
 
 set(JSONCPP_LIB_LOCATION "$<TARGET_FILE:${JsonCpp}>")
