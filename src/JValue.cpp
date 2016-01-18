@@ -14,6 +14,7 @@ const char *JValue::Parse(const char *str)
         // TODO: Parse string value
         ++str;
         autoMem.value.pStr = new std::string(JsonReader::ReadString(&str));
+        autoMem.type = JValueType::jString;
         return str;
     }
     if (std::strncmp(str, "true", 4) == 0)
@@ -47,7 +48,7 @@ JValueType JValue::GetType() const
     return autoMem.type;
 }
 
-bool JValue::operator bool() const
+JValue::operator bool() const
 {
     if (autoMem.type == JValueType::boolean)
     {
@@ -57,7 +58,7 @@ bool JValue::operator bool() const
     throw JsonException("This json value is not a bool value");
 }
 
-double JValue::operator double() const
+JValue::operator double() const
 {
     if (autoMem.type == JValueType::number)
     {
@@ -67,9 +68,9 @@ double JValue::operator double() const
     throw JsonException("This json value is not a number value");
 }
 
-std::string JValue::operator std::string() const
+JValue::operator std::string() const
 {
-    if (autoMem.type == JValueType::string)
+    if (autoMem.type == JValueType::jString)
     {
         return *autoMem.value.pStr;
     }
@@ -102,7 +103,7 @@ const std::string &JValue::ToString() const
     if (nullptr == valString)
     {
         valString = new std::string();
-        if (JValueType::string == autoMem.type)
+        if (JValueType::jString == autoMem.type)
         {
             valString->push_back('\"');
             valString->append(*autoMem.value.pStr);
@@ -118,7 +119,18 @@ const std::string &JValue::ToString() const
         }
         else if (JValueType::number == autoMem.type)
         {
-            valString->append(std::to_string(autoMem.value.num));
+            auto str = std::to_string(autoMem.value.num);
+            auto len = str.size() - 1;
+            while (str[len] == '0')
+            {
+                str.pop_back();
+                --len;
+            }
+            if (str[len] == '.')
+            {
+                str.pop_back();
+            }
+            valString->append(str);
         }
     }
 

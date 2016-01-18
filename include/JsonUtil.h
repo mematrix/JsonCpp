@@ -60,7 +60,7 @@ namespace JsonCpp
         {
             if (!b)
             {
-                throw JsonException("Incorrect json string");
+                throw JsonException("Incorrect json string: bool");
             }
         }
 
@@ -69,7 +69,7 @@ namespace JsonCpp
             str = SkipWhiteSpace(str);
             if (*str != '\0')
             {
-                throw JsonException("Incorrect json string");
+                throw JsonException("Incorrect json string: end");
             }
         }
 
