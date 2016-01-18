@@ -80,6 +80,7 @@ std::string JsonReader::ReadString(const char **str)
                     ret.push_back('\t');
                     continue;
                 case 'u':
+                {
                     char *end;
                     auto unicode = (unsigned short) std::strtoul(tmp + 1, &end, 16);
                     JsonUtil::Assert(end == tmp + 5);
@@ -93,11 +94,12 @@ std::string JsonReader::ReadString(const char **str)
                     tmp += 4;
                     lst = tmp + 1;
                     continue;
+                }
                 default:
                     throw JsonException("Illegal character");
             }
         }
-        JsonUtil::Assert(std::iscntrl(*tmp) != 0);
+        JsonUtil::Assert(std::iscntrl(*tmp) == 0);
         ++count;
     }
 

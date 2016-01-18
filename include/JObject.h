@@ -20,12 +20,12 @@ namespace JsonCpp
         std::map<std::string, std::unique_ptr<JToken>> children;
         mutable std::string *objString;
 
-        JObject() { }
+        JObject() : children(), objString(nullptr) { }
 
         const char *Parse(const char *str);
 
     public:
-        JObject(const char *str)
+        JObject(const char *str) : children(), objString(nullptr)
         {
             auto end = Parse(str);
             JsonUtil::AssertEndStr(end);

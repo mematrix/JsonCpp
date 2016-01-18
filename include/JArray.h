@@ -20,12 +20,12 @@ namespace JsonCpp
         std::vector<std::unique_ptr<JToken>> children;
         mutable std::string *aryString;
 
-        JArray() { }
+        JArray() : children(), aryString(nullptr) { }
 
         const char *Parse(const char *);
 
     public:
-        JArray(const char *str)
+        JArray(const char *str) : children(), aryString(nullptr)
         {
             auto end = Parse(str);
             JsonUtil::AssertEndStr(end);
