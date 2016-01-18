@@ -30,7 +30,7 @@ namespace JsonCpp
 
             ~AutoMemManage()
             {
-                if (type == JValueType::string && value.pStr != nullptr)
+                if (type == JValueType::jString && value.pStr != nullptr)
                 {
                     delete value.pStr;
                     value.pStr = nullptr;
@@ -41,12 +41,12 @@ namespace JsonCpp
         AutoMemManage autoMem;
         mutable std::string *valString;
 
-        JValue() { }
+        JValue() : valString(nullptr) { }
 
         const char *Parse(const char *);
 
     public:
-        JValue(const char *str)
+        JValue(const char *str) : valString(nullptr)
         {
             auto end = Parse(str);
             JsonUtil::AssertEndStr(end);

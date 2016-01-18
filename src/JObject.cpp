@@ -50,18 +50,18 @@ JValueType JObject::GetType() const
     return JValueType::object;
 }
 
-bool JObject::operator bool() const
+JObject::operator bool() const
 {
     // or throw exception
     return !children.empty();
 }
 
-double JObject::operator double() const
+JObject::operator double() const
 {
     return children.size();
 }
 
-std::string JObject::operator std::string() const
+JObject::operator std::string() const
 {
     return ToString();
 }

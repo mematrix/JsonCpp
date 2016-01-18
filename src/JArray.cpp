@@ -38,17 +38,17 @@ JValueType JArray::GetType() const
     return JValueType::array;
 }
 
-bool JArray::operator bool() const
+JArray::operator bool() const
 {
     return !children.empty();
 }
 
-double JArray::operator double() const
+JArray::operator double() const
 {
     return children.size();
 }
 
-std::string JArray::operator std::string() const
+JArray::operator std::string() const
 {
     return ToString();
 }

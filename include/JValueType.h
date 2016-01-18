@@ -12,7 +12,7 @@ namespace JsonCpp
         null,
         boolean,
         number,
-        string,
+        jString,
         object,
         array
     };
