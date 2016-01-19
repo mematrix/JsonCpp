@@ -14,24 +14,24 @@ const char *JValue::Parse(const char *str)
         // TODO: Parse string value
         ++str;
         autoMem.value.pStr = new std::string(JsonReader::ReadString(&str));
-        autoMem.type = JValueType::jString;
+        autoMem.type = JValueType::String;
         return str;
     }
     if (std::strncmp(str, "true", 4) == 0)
     {
-        autoMem.type = JValueType::boolean;
+        autoMem.type = JValueType::Boolean;
         autoMem.value.bVal = true;
         return str + 4;
     }
     if (std::strncmp(str, "false", 5) == 0)
     {
-        autoMem.type = JValueType::boolean;
+        autoMem.type = JValueType::Boolean;
         autoMem.value.bVal = false;
         return str + 5;
     }
     if (std::strncmp(str, "null", 4) == 0)
     {
-        autoMem.type = JValueType::null;
+        autoMem.type = JValueType::Null;
         return str + 4;
     }
 
@@ -39,7 +39,7 @@ const char *JValue::Parse(const char *str)
     char *end;
     autoMem.value.num = std::strtod(str, &end);
     JsonUtil::Assert(end != str);
-    autoMem.type = JValueType::number;
+    autoMem.type = JValueType::Number;
     return end;
 }
 
@@ -50,7 +50,7 @@ JValueType JValue::GetType() const
 
 JValue::operator bool() const
 {
-    if (autoMem.type == JValueType::boolean)
+    if (autoMem.type == JValueType::Boolean)
     {
         return autoMem.value.bVal;
     }
@@ -60,7 +60,7 @@ JValue::operator bool() const
 
 JValue::operator double() const
 {
-    if (autoMem.type == JValueType::number)
+    if (autoMem.type == JValueType::Number)
     {
         return autoMem.value.num;
     }
@@ -70,7 +70,7 @@ JValue::operator double() const
 
 JValue::operator std::string() const
 {
-    if (autoMem.type == JValueType::jString)
+    if (autoMem.type == JValueType::String)
     {
         return *autoMem.value.pStr;
     }
@@ -103,21 +103,21 @@ const std::string &JValue::ToString() const
     if (nullptr == valString)
     {
         valString = new std::string();
-        if (JValueType::jString == autoMem.type)
+        if (JValueType::String == autoMem.type)
         {
             valString->push_back('\"');
             valString->append(*autoMem.value.pStr);
             valString->push_back('\"');
         }
-        else if (JValueType::null == autoMem.type)
+        else if (JValueType::Null == autoMem.type)
         {
             valString->append("null");
         }
-        else if (JValueType::boolean == autoMem.type)
+        else if (JValueType::Boolean == autoMem.type)
         {
             valString->append(autoMem.value.bVal ? "true" : "false");
         }
-        else if (JValueType::number == autoMem.type)
+        else if (JValueType::Number == autoMem.type)
         {
             auto str = std::to_string(autoMem.value.num);
             auto len = str.size() - 1;

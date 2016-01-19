@@ -9,12 +9,12 @@ namespace JsonCpp
 {
     enum JValueType
     {
-        null,
-        boolean,
-        number,
-        jString,
-        object,
-        array
+        Null,
+        Boolean,
+        Number,
+        String,
+        Object,
+        Array
     };
 }
 

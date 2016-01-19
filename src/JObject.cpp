@@ -13,7 +13,7 @@ using tokenItem = std::pair<std::string, pToken>;
 const char *JObject::Parse(const char *str)
 {
     str = JsonUtil::SkipWhiteSpace(str);
-    JsonUtil::AssertEqual<JValueType::object>(*str, '{');
+    JsonUtil::AssertEqual<JValueType::Object>(*str, '{');
     // empty object
     str = JsonUtil::SkipWhiteSpace(str, 1);
     if (*str == '}')
@@ -23,12 +23,12 @@ const char *JObject::Parse(const char *str)
 
     while (true)
     {
-        JsonUtil::AssertEqual<JValueType::object>(*str, '\"');
+        JsonUtil::AssertEqual<JValueType::Object>(*str, '\"');
         ++str;
         std::string key(JsonReader::ReadString(&str));
 
         str = JsonUtil::SkipWhiteSpace(str);
-        JsonUtil::AssertEqual<JValueType::object>(*str, ':');
+        JsonUtil::AssertEqual<JValueType::Object>(*str, ':');
         ++str;
         auto ret = children.insert(tokenItem(key, JsonReader::ReadToken(&str)));
         JsonUtil::Assert(ret.second);
@@ -47,7 +47,7 @@ const char *JObject::Parse(const char *str)
 
 JValueType JObject::GetType() const
 {
-    return JValueType::object;
+    return JValueType::Object;
 }
 
 JObject::operator bool() const

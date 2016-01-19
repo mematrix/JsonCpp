@@ -9,7 +9,7 @@ using namespace JsonCpp;
 const char *JArray::Parse(const char *str)
 {
     str = JsonUtil::SkipWhiteSpace(str);
-    JsonUtil::AssertEqual<JValueType::array>(*str, '[');
+    JsonUtil::AssertEqual<JValueType::Array>(*str, '[');
     // empty array
     str = JsonUtil::SkipWhiteSpace(str, 1);
     if (*str == ']')
@@ -28,14 +28,14 @@ const char *JArray::Parse(const char *str)
             continue;
         }
 
-        JsonUtil::AssertEqual<JValueType::array>(*str, ']');
+        JsonUtil::AssertEqual<JValueType::Array>(*str, ']');
         return str + 1;
     }
 }
 
 JValueType JArray::GetType() const
 {
-    return JValueType::array;
+    return JValueType::Array;
 }
 
 JArray::operator bool() const
