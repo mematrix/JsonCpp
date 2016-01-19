@@ -34,8 +34,18 @@ namespace JsonCpp
 
         virtual const JToken &GetValue(unsigned long) const = 0;
 
+        // JPath access
+        virtual const JToken &SelectToken(const std::string &) const = 0;
+
+        virtual const JToken &SelectTokens(const std::string &) const = 0;
+
         // for format
         virtual const std::string &ToString() const = 0;
+
+        virtual const std::string &ToFormatString() const = 0;
+
+        // reclaim unnecessary memory
+        virtual void Reclaim() const = 0;
 
         virtual ~JToken() { }
     };
