@@ -26,11 +26,11 @@ namespace JsonCpp
             JValueType type;
             Value value;
 
-            AutoMemManage(JValueType t = JValueType::null) : type(t) { }
+            AutoMemManage(JValueType t = JValueType::Null) : type(t) { }
 
             ~AutoMemManage()
             {
-                if (type == JValueType::jString && value.pStr != nullptr)
+                if (type == JValueType::String && value.pStr != nullptr)
                 {
                     delete value.pStr;
                     value.pStr = nullptr;
@@ -52,14 +52,7 @@ namespace JsonCpp
             JsonUtil::AssertEndStr(end);
         }
 
-        ~JValue()
-        {
-            if (nullptr != valString)
-            {
-                delete valString;
-                valString = nullptr;
-            }
-        }
+        ~JValue() { Reclaim(); }
 
         virtual JValueType GetType() const override;
 
@@ -79,8 +72,18 @@ namespace JsonCpp
 
         virtual const JToken &GetValue(unsigned long) const override;
 
+        // JPath access
+        virtual const JToken &SelectToken(const std::string &) const override;
+
+        virtual const JToken &SelectTokens(const std::string &) const override;
+
         // for format
         virtual const std::string &ToString() const override;
+
+        virtual const std::string &ToFormatString() const override;
+
+        // reclaim unnecessary memory
+        virtual void Reclaim() const override;
     };
 }
 

@@ -19,26 +19,20 @@ namespace JsonCpp
 
         std::map<std::string, std::unique_ptr<JToken>> children;
         mutable std::string *objString;
+        mutable std::string *fmtString;
 
-        JObject() : children(), objString(nullptr) { }
+        JObject() : children(), objString(nullptr), fmtString(nullptr) { }
 
         const char *Parse(const char *str);
 
     public:
-        JObject(const char *str) : children(), objString(nullptr)
+        JObject(const char *str) : children(), objString(nullptr), fmtString(nullptr)
         {
             auto end = Parse(str);
             JsonUtil::AssertEndStr(end);
         }
 
-        ~JObject()
-        {
-            if (objString != nullptr)
-            {
-                delete objString;
-                objString = nullptr;
-            }
-        }
+        ~JObject() { Reclaim(); }
 
         virtual JValueType GetType() const override;
 
@@ -58,8 +52,18 @@ namespace JsonCpp
 
         virtual const JToken &GetValue(unsigned long) const override;
 
+        // JPath access
+        virtual const JToken &SelectToken(const std::string &) const override;
+
+        virtual const JToken &SelectTokens(const std::string &) const override;
+
         // for format
         virtual const std::string &ToString() const override;
+
+        virtual const std::string &ToFormatString() const override;
+
+        // reclaim unnecessary memory
+        virtual void Reclaim() const override;
     };
 }
 

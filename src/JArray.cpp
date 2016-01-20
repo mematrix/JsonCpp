@@ -93,3 +93,50 @@ const std::string &JArray::ToString() const
 
     return *aryString;
 }
+
+const std::string &JArray::ToFormatString() const
+{
+    if (nullptr == fmtString)
+    {
+        fmtString = new std::string();
+        fmtString->append("[\n");
+        if (!children.empty())
+        {
+            for (const auto &child : children)
+            {
+                for (const auto &c : child->ToFormatString())
+                {
+                    if (c == '\n')
+                    {
+                        fmtString->append("\n\t");
+                    }
+                    else
+                    {
+                        fmtString->push_back(c);
+                    }
+                }
+                fmtString->append(",\n");
+            }
+            fmtString->pop_back();
+            fmtString->pop_back();
+            fmtString->push_back('\n');
+        }
+        fmtString->push_back(']');
+    }
+
+    return *fmtString;
+}
+
+void JArray::Reclaim() const
+{
+    if (aryString)
+    {
+        delete aryString;
+        aryString = nullptr;
+    }
+    if (fmtString)
+    {
+        delete fmtString;
+        fmtString = nullptr;
+    }
+}

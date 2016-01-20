@@ -34,7 +34,7 @@ namespace JsonCpp
 
         virtual const JToken &GetValue(unsigned long) const = 0;
 
-        // JPath access
+        // JPath access : ignore root syntax($)
         virtual const JToken &SelectToken(const std::string &) const = 0;
 
         virtual const JToken &SelectTokens(const std::string &) const = 0;

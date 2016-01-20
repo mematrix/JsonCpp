@@ -88,7 +88,7 @@ const JToken &JObject::GetValue(unsigned long) const
 
 const std::string &JObject::ToString() const
 {
-    if (objString == nullptr)
+    if (nullptr == objString)
     {
         objString = new std::string();
         objString->push_back('{');
@@ -108,4 +108,54 @@ const std::string &JObject::ToString() const
     }
 
     return *objString;
+}
+
+const std::string &JObject::ToFormatString() const
+{
+    if (nullptr == fmtString)
+    {
+        fmtString = new std::string();
+        fmtString->append("{\n");
+        if (!children.empty())
+        {
+            for (const auto &child : children)
+            {
+                fmtString->append("\t\"");
+                fmtString->append(child.first);
+                fmtString->append("\" : ");
+                for (const auto &c : child.second->ToFormatString())
+                {
+                    if (c == '\n')
+                    {
+                        fmtString->append("\n\t");
+                    }
+                    else
+                    {
+                        fmtString->push_back(c);
+                    }
+                }
+                fmtString->append(",\n");
+            }
+            fmtString->pop_back();
+            fmtString->pop_back();
+            fmtString->push_back('\n');
+        }
+        fmtString->push_back('}');
+    }
+
+    return *fmtString;
+}
+
+void JObject::Reclaim() const
+{
+    if (objString)
+    {
+        delete objString;
+        objString = nullptr;
+    }
+    if (fmtString)
+    {
+        delete fmtString;
+        fmtString = nullptr;
+    }
 }

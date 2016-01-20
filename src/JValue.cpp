@@ -80,22 +80,32 @@ JValue::operator std::string() const
 
 const JToken &JValue::operator[](const std::string &) const
 {
-    throw JsonException("Access not support");
+    throw JsonException("Access not support: subscript with key");
 }
 
 const JToken &JValue::operator[](unsigned long) const
 {
-    throw JsonException("Access not support");
+    throw JsonException("Access not support: subscript with index");
 }
 
 const JToken &JValue::GetValue(const std::string &) const
 {
-    throw JsonException("Access not support");
+    throw JsonException("Access not support: getValue with key");
 }
 
 const JToken &JValue::GetValue(unsigned long) const
 {
-    throw JsonException("Access not support");
+    throw JsonException("Access not support: getValue with index");
+}
+
+const JToken &JValue::SelectToken(const std::string &) const
+{
+    throw JsonException("Access not support: select token");
+}
+
+const JToken &JValue::SelectTokens(const std::string &) const
+{
+    throw JsonException("Access not support: select tokens");
 }
 
 const std::string &JValue::ToString() const
@@ -135,4 +145,18 @@ const std::string &JValue::ToString() const
     }
 
     return *valString;
+}
+
+const std::string &JValue::ToFormatString() const
+{
+    return ToString();
+}
+
+void JValue::Reclaim() const
+{
+    if (valString)
+    {
+        delete valString;
+        valString = nullptr;
+    }
 }

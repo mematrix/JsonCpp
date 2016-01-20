@@ -19,26 +19,20 @@ namespace JsonCpp
 
         std::vector<std::unique_ptr<JToken>> children;
         mutable std::string *aryString;
+        mutable std::string *fmtString;
 
-        JArray() : children(), aryString(nullptr) { }
+        JArray() : children(), aryString(nullptr), fmtString(nullptr) { }
 
         const char *Parse(const char *);
 
     public:
-        JArray(const char *str) : children(), aryString(nullptr)
+        JArray(const char *str) : children(), aryString(nullptr), fmtString(nullptr)
         {
             auto end = Parse(str);
             JsonUtil::AssertEndStr(end);
         }
 
-        ~JArray()
-        {
-            if (nullptr != aryString)
-            {
-                delete aryString;
-                aryString = nullptr;
-            }
-        }
+        ~JArray() { Reclaim(); }
 
         virtual JValueType GetType() const override;
 
@@ -58,8 +52,18 @@ namespace JsonCpp
 
         virtual const JToken &GetValue(unsigned long) const override;
 
+        // JPath access
+        virtual const JToken &SelectToken(const std::string &) const override;
+
+        virtual const JToken &SelectTokens(const std::string &) const override;
+
         // for format
         virtual const std::string &ToString() const override;
+
+        virtual const std::string &ToFormatString() const override;
+
+        // reclaim unnecessary memory
+        virtual void Reclaim() const override;
     };
 }
 
