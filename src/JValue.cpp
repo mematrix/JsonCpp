@@ -98,12 +98,12 @@ const JToken &JValue::GetValue(unsigned long) const
     throw JsonException("Access not support: getValue with index");
 }
 
-const JToken &JValue::SelectToken(const std::string &) const
+const JToken *JValue::SelectToken(const std::string &) const
 {
     throw JsonException("Access not support: select token");
 }
 
-const JToken &JValue::SelectTokens(const std::string &) const
+std::vector<const JToken &> JValue::SelectTokens(const std::string &) const
 {
     throw JsonException("Access not support: select tokens");
 }
