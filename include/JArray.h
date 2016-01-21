@@ -53,9 +53,9 @@ namespace JsonCpp
         virtual const JToken &GetValue(unsigned long) const override;
 
         // JPath access
-        virtual const JToken &SelectToken(const std::string &) const override;
+        virtual const JToken *SelectToken(const std::string &) const override;
 
-        virtual const JToken &SelectTokens(const std::string &) const override;
+        virtual std::vector<const JToken &> SelectTokens(const std::string &) const override;
 
         // for format
         virtual const std::string &ToString() const override;
