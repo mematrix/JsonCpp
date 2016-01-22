@@ -43,6 +43,19 @@ const char *JValue::Parse(const char *str)
     return end;
 }
 
+const JToken *JValue::SelectTokenCore(std::list<ActionNode> &nodes) const
+{
+    return nodes.size() == 0 ? this : nullptr;
+}
+
+void JValue::SelectTokensCore(std::list<ActionNode> &nodes, std::list<const JToken *> &tokens) const
+{
+    if (nodes.size() == 0)
+    {
+        tokens.push_back(this);
+    }
+}
+
 JValueType JValue::GetType() const
 {
     return autoMem.type;
@@ -96,16 +109,6 @@ const JToken &JValue::GetValue(const std::string &) const
 const JToken &JValue::GetValue(unsigned long) const
 {
     throw JsonException("Access not support: getValue with index");
-}
-
-const JToken *JValue::SelectToken(const std::string &) const
-{
-    throw JsonException("Access not support: select token");
-}
-
-std::vector<const JToken &> JValue::SelectTokens(const std::string &) const
-{
-    throw JsonException("Access not support: select tokens");
 }
 
 const std::string &JValue::ToString() const

@@ -73,6 +73,7 @@ const JToken &JArray::GetValue(unsigned long index) const
     return children.at(index).operator*();
 }
 
+/*
 const JToken* JArray::SelectToken(const std::string &path) const {
     auto str = path.c_str();
     unsigned long indexStart = 0;
@@ -82,7 +83,7 @@ const JToken* JArray::SelectToken(const std::string &path) const {
         }
         indexStart = 2;
     }
-}
+}*/
 
 const std::string &JArray::ToString() const
 {

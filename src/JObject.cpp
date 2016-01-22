@@ -86,6 +86,7 @@ const JToken &JObject::GetValue(unsigned long) const
     throw JsonException("Access not support");
 }
 
+/*
 const JToken *JObject::SelectToken(const std::string &path) const
 {
     auto str = path.c_str();
@@ -112,7 +113,7 @@ const JToken *JObject::SelectToken(const std::string &path) const
     auto child = children.find(key);
 
     return child != children.end() ? child->second->SelectToken(std::string(str)) : nullptr;
-}
+}*/
 
 const std::string &JObject::ToString() const
 {
