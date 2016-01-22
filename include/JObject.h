@@ -25,6 +25,12 @@ namespace JsonCpp
 
         const char *Parse(const char *str);
 
+    protected:
+        // JPath syntax parse core.
+        virtual const JToken *SelectTokenCore(std::list<ActionNode> &) const override;
+
+        virtual void SelectTokensCore(std::list<ActionNode> &, std::list<const JToken *> &) const override;
+
     public:
         JObject(const char *str) : children(), objString(nullptr), fmtString(nullptr)
         {
@@ -51,11 +57,6 @@ namespace JsonCpp
         virtual const JToken &GetValue(const std::string &) const override;
 
         virtual const JToken &GetValue(unsigned long) const override;
-
-        // JPath access
-        virtual const JToken *SelectToken(const std::string &) const override;
-
-        virtual std::vector<const JToken &> SelectTokens(const std::string &) const override;
 
         // for format
         virtual const std::string &ToString() const override;

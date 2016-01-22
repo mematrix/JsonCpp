@@ -6,7 +6,8 @@
 #define CPPPARSER_JTOKEN_H
 
 #include <string>
-#include <vector>
+#include <list>
+#include <limits>
 
 #include "JsonUtil.h"
 
@@ -14,12 +15,19 @@ namespace JsonCpp
 {
     class JToken
     {
-    protected:
-        // TODO: 添加内部类型,用于将传入字符串解析成语法树,再调用Core方法.
-        // JPath syntax parse core.
-        virtual const JToken *SelectTokenCore() const = 0;
+    private:
+        /*
+         * 解析JPath字符串.
+         * @param 待解析的字符串
+         * @return 解析结果,如果JPath语法错误,返回空列表;否则返回顺序的节点列表,其中第一项为$符号.
+         */
+        std::list<ActionNode> ParseJPath(const char *) const;
 
-        virtual const std::vector<const JToken &> SelectTokensCore() const = 0;
+    protected:
+        // JPath syntax parse core.
+        virtual const JToken *SelectTokenCore(std::list<ActionNode> &) const = 0;
+
+        virtual void SelectTokensCore(std::list<ActionNode> &, std::list<const JToken *> &) const = 0;
 
     public:
         virtual JValueType GetType() const = 0;
@@ -40,10 +48,29 @@ namespace JsonCpp
 
         virtual const JToken &GetValue(unsigned long) const = 0;
 
-        // JPath access : ignore root syntax($)
-        virtual const JToken *SelectToken(const std::string &) const = 0;
+        // JPath access : $ symbol will be treated as the call object
+        const JToken *SelectToken(const std::string &str) const
+        {
+            auto nodes = ParseJPath(str.c_str());
+            if (nodes.size() == 0)
+            {
+                return nullptr;
+            }
+            nodes.pop_front();
+            return SelectTokenCore(nodes);
+        }
 
-        virtual std::vector<const JToken &> SelectTokens(const std::string &) const = 0;
+        std::list<const JToken *> SelectTokens(const std::string &str) const
+        {
+            auto nodes = ParseJPath(str.c_str());
+            std::list<const JToken *> tokens;
+            if (nodes.size() != 0)
+            {
+                nodes.pop_front();
+                SelectTokensCore(nodes, tokens);
+            }
+            return tokens;
+        }
 
         // for format
         virtual const std::string &ToString() const = 0;
