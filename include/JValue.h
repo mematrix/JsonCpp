@@ -47,9 +47,9 @@ namespace JsonCpp
 
     protected:
         // JPath syntax parse core.
-        virtual const JToken *SelectTokenCore(std::list<ActionNode> &) const override;
+        virtual const JToken *SelectTokenCore(const NodePtrList &, unsigned int) const override;
 
-        virtual void SelectTokensCore(std::list<ActionNode> &, std::list<const JToken *> &) const override;
+        virtual void SelectTokensCore(const NodePtrList &, unsigned int, std::list<const JToken *> &) const override;
 
     public:
         JValue(const char *str) : valString(nullptr)

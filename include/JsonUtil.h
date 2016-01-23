@@ -25,9 +25,9 @@ namespace JsonCpp
         static const char *GetInfo() { return "Error when parse json value"; }
     };
 
-    MAKE_VALUE_TYPE_INFO(JValueType::object, _object);
+    MAKE_VALUE_TYPE_INFO(JValueType::Object, _object);
 
-    MAKE_VALUE_TYPE_INFO(JValueType::array, _array);
+    MAKE_VALUE_TYPE_INFO(JValueType::Array, _array);
 
     struct JsonUtil
     {
@@ -47,7 +47,7 @@ namespace JsonCpp
             return SkipWhiteSpace(str);
         }
 
-        template<JValueType type = JValueType::null>
+        template<JValueType type = JValueType::Null>
         static void AssertEqual(char a, char b)
         {
             if (a != b)
