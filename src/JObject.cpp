@@ -2,8 +2,6 @@
 // Created by qife on 16/1/11.
 //
 
-#include <string>
-
 #include "JObject.h"
 
 using namespace JsonCpp;
@@ -42,6 +40,143 @@ const char *JObject::Parse(const char *str)
         JsonUtil::Assert(*str == '}');
 
         return str + 1;
+    }
+}
+
+const JToken *JObject::SelectTokenCore(const NodePtrList &nodes, unsigned int cur) const
+{
+    if (nodes.size() == cur)
+    {
+        return this;
+    }
+
+    auto node = nodes[cur - 1];
+    switch (node->actionType)
+    {
+        case ActionType::ValueWithKey:
+        {
+            auto child = children.find(*node->actionData.key);
+            if (child != children.end())
+            {
+                return child->second->SelectTokenCore(nodes, cur + 1);
+            }
+            break;
+        }
+
+        case ArrayBySubscript:
+        {
+            return nullptr;
+        }
+
+        case Wildcard:
+        {
+            for (const auto &child : children)
+            {
+                if (auto token = child.second->SelectTokenCore(nodes, cur + 1))
+                {
+                    return token;
+                }
+            }
+            break;
+        }
+
+        case ReValueWithKey:
+        {
+            auto child = children.find(*node->actionData.key);
+            if (child != children.end())
+            {
+                if (auto token = child->second->SelectTokenCore(nodes, cur + 1))
+                {
+                    return token;
+                }
+            }
+            for (const auto &item : children)
+            {
+                if (auto token = item.second->SelectTokenCore(nodes, cur))
+                {
+                    return token;
+                }
+            }
+            break;
+        }
+
+        case ReWildcard:
+        {
+            for (const auto &child : children)
+            {
+                // test whether the child matches
+                if (auto curToken = child.second->SelectTokenCore(nodes, cur + 1))
+                {
+                    return curToken;
+                }
+                // test child's children
+                if (auto nxtToken = child.second->SelectTokenCore(nodes, cur))
+                {
+                    return nxtToken;
+                }
+            }
+            break;
+        }
+    }
+
+    return nullptr;
+}
+
+void JObject::SelectTokensCore(const NodePtrList &nodes, unsigned int cur, std::list<const JToken *> &tokens) const
+{
+    if (nodes.size() == cur)
+    {
+        tokens.push_back(this);
+        return;
+    }
+
+    auto node = nodes[cur - 1];
+    switch (node->actionType)
+    {
+        case ValueWithKey:
+        {
+            auto child = children.find(*node->actionData.key);
+            if (child != children.end())
+            {
+                child->second->SelectTokensCore(nodes, cur + 1, tokens);
+            }
+            break;
+        }
+
+        case ArrayBySubscript: break;
+
+        case Wildcard:
+        {
+            for (const auto &child : children)
+            {
+                child.second->SelectTokensCore(nodes, cur + 1, tokens);
+            }
+            break;
+        }
+
+        case ReValueWithKey:
+        {
+            auto child = children.find(*node->actionData.key);
+            if (child != children.end())
+            {
+                child->second->SelectTokensCore(nodes, cur + 1, tokens);
+            }
+            for (const auto &item : children)
+            {
+                item.second->SelectTokensCore(nodes, cur, tokens);
+            }
+            break;
+        }
+
+        case ReWildcard:
+        {
+            for (const auto &child : children)
+            {
+                child.second->SelectTokensCore(nodes, cur + 1, tokens);
+                child.second->SelectTokensCore(nodes, cur, tokens);
+            }
+            break;
+        }
     }
 }
 
@@ -85,35 +220,6 @@ const JToken &JObject::GetValue(unsigned long) const
 {
     throw JsonException("Access not support");
 }
-
-/*
-const JToken *JObject::SelectToken(const std::string &path) const
-{
-    auto str = path.c_str();
-    unsigned long keyStart = 0;
-    if (*str == '$')
-    {
-        if (*(str + 1) != '.')
-        {
-            return nullptr;
-        }
-        keyStart = 2;
-    }
-    unsigned long keyLength = 0;
-    for (str += keyStart; *str != '.' && *str != '[' && *str != '\0'; ++str)
-    {
-        ++keyLength;
-    }
-    if (keyLength == 0)
-    {
-        return nullptr;
-    }
-
-    auto key = path.substr(keyStart, keyLength);
-    auto child = children.find(key);
-
-    return child != children.end() ? child->second->SelectToken(std::string(str)) : nullptr;
-}*/
 
 const std::string &JObject::ToString() const
 {

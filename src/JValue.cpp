@@ -11,7 +11,7 @@ const char *JValue::Parse(const char *str)
     str = JsonUtil::SkipWhiteSpace(str);
     if (*str == '\"')
     {
-        // TODO: Parse string value
+        // Parse string value
         ++str;
         autoMem.value.pStr = new std::string(JsonReader::ReadString(&str));
         autoMem.type = JValueType::String;
@@ -35,7 +35,7 @@ const char *JValue::Parse(const char *str)
         return str + 4;
     }
 
-    // TODO: Parse number value
+    // Parse number value
     char *end;
     autoMem.value.num = std::strtod(str, &end);
     JsonUtil::Assert(end != str);
@@ -43,14 +43,14 @@ const char *JValue::Parse(const char *str)
     return end;
 }
 
-const JToken *JValue::SelectTokenCore(std::list<ActionNode> &nodes) const
+const JToken *JValue::SelectTokenCore(const NodePtrList &nodes, unsigned int cur) const
 {
-    return nodes.size() == 0 ? this : nullptr;
+    return nodes.size() == cur ? this : nullptr;
 }
 
-void JValue::SelectTokensCore(std::list<ActionNode> &nodes, std::list<const JToken *> &tokens) const
+void JValue::SelectTokensCore(const NodePtrList &nodes, unsigned int cur, std::list<const JToken *> &tokens) const
 {
-    if (nodes.size() == 0)
+    if (nodes.size() == cur)
     {
         tokens.push_back(this);
     }
