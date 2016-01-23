@@ -33,6 +33,79 @@ const char *JArray::Parse(const char *str)
     }
 }
 
+const JToken *JArray::SelectTokenCore(const NodePtrList &nodes, unsigned int cur) const
+{
+    if (nodes.size() == cur)
+    {
+        return this;
+    }
+
+    auto node = nodes[cur - 1];
+    if (node->actionType == ActionType::ArrayBySubscript)
+    {
+        auto data = node->actionData.subData;
+        switch (data->filterType)
+        {
+            case SubscriptData::ArrayIndices:
+            {
+                auto len = children.size();
+                for (const auto &item : *data->filterData.indices)
+                {
+                    if (item >= 0 && item < len)
+                    {
+                        if (auto token = children[item]->SelectTokenCore(nodes, cur + 1))
+                        {
+                            return token;
+                        }
+                    }
+                }
+                break;
+            }
+
+            case SubscriptData::ArraySlice:
+            {
+                auto slice = data->filterData.slice;
+                if (slice->step == 0)
+                {
+                    return nullptr;
+                }
+                auto len = (int) children.size();
+                auto end = slice->end == std::numeric_limits<int>::max() ? len :
+                           slice->end >= 0 ? slice->end : len + slice->end;
+                end = end > len ? len : end;
+                auto start = slice->start >= 0 ? slice->start : len + slice->start;
+
+                for (start = start >= 0 ? start : 0; start < end; start += slice->step)
+                {
+                    if (auto token = children[start]->SelectTokenCore(nodes, cur + 1))
+                    {
+                        return token;
+                    }
+                }
+
+                break;
+            }
+
+            case SubscriptData::Script:break;
+            case SubscriptData::Filter:break;
+
+            case SubscriptData::All:
+            {
+                for (const auto &child : children)
+                {
+                    if (auto token = child->SelectTokenCore(nodes, cur + 1))
+                    {
+                        return token;
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    return nullptr;
+}
+
 JValueType JArray::GetType() const
 {
     return JValueType::Array;
@@ -72,18 +145,6 @@ const JToken &JArray::GetValue(unsigned long index) const
 {
     return children.at(index).operator*();
 }
-
-/*
-const JToken* JArray::SelectToken(const std::string &path) const {
-    auto str = path.c_str();
-    unsigned long indexStart = 0;
-    if(*str == '$'){
-        if(*(str +1)!='['){
-            return nullptr;
-        }
-        indexStart = 2;
-    }
-}*/
 
 const std::string &JArray::ToString() const
 {
