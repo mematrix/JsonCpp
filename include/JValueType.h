@@ -23,8 +23,8 @@ namespace JsonCpp
     {
         enum ExprType
         {
-            Operator,
             Numeric,
+            Operator,
             Boolean,
             Property
         };
@@ -41,6 +41,36 @@ namespace JsonCpp
         {
             ExprType type;
             ExprData data;
+
+            ExprNode(ExprType t = ExprType::Numeric) : type(t) { data.prop = nullptr; }
+
+            ExprNode(ExprNode &&node) : type(node.type)
+            {
+                switch (node.type)
+                {
+                    case Numeric:
+                        data.num = node.data.num;
+                        node.data.num = 0.0;
+                        break;
+
+                    case Operator:
+                        data.op = node.data.op;
+                        node.data.op = '\0';
+                        break;
+
+                    case Boolean:
+                        data.bv = node.data.bv;
+                        node.data.bv = false;
+                        break;
+
+                    case Property:
+                        data.prop = node.data.prop;
+                        node.data.prop = nullptr;
+                        break;
+                }
+
+                node.type = Numeric;
+            }
 
             ~ExprNode()
             {
