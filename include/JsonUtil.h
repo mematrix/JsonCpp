@@ -5,7 +5,9 @@
 #ifndef CPPPARSER_JSONUTIL_H
 #define CPPPARSER_JSONUTIL_H
 
+#include <string>
 #include <locale>
+#include <stack>
 
 #include "JValueType.h"
 #include "JsonException.h"
@@ -31,6 +33,8 @@ namespace JsonCpp
 
     struct JsonUtil
     {
+        using namespace Expr;
+
         static const char *SkipWhiteSpace(const char *str)
         {
             while (std::isspace(*str))
@@ -96,6 +100,58 @@ namespace JsonCpp
             utf8Str[1] = static_cast<char>(((uChar >> 6) & 0x3f) | 0x80);
             utf8Str[0] = static_cast<char>(((uChar >> 12) & 0x0f) | 0xe0);
             return 3;
+        }
+
+        static bool GetRePolishExpression(const char *start, const char *end, std::stack<ExprNode> &nodes)
+        {
+            int paren = 0;
+            while (start < end)
+            {
+                if (*start == '@')
+                {
+                    if (*(start + 1) != '.')
+                    {
+                        return false;
+                    }
+                    start += 2;
+
+                    unsigned int len = 0;
+                    auto tmp = start;
+                    while (true)
+                    {
+                        switch (*start)
+                        {
+                            case '+':
+                            case '-':
+                            case '*':
+                            case '/':
+                            case '%':
+                            case ')':
+                            case ' ':
+                                break;
+
+                            case '(':
+                                return false;
+
+                            default:
+                                ++len;
+                                ++start;
+                                continue;
+                        }
+
+                        if (len == 0)
+                        {
+                            return false;
+                        }
+
+                        ExprNode node(ExprType::Property);
+                        node.data.prop = new std::string(tmp, len);
+                        nodes.push(std::move(node));
+                        break;
+                    }
+                }
+                ++start;
+            }
         }
     };
 }
