@@ -69,10 +69,9 @@ const JToken *JArray::SelectTokenCore(const NodePtrList &nodes, unsigned int cur
                 {
                     return nullptr;
                 }
-                auto len = (int) children.size();
-                auto end = slice->end == std::numeric_limits<int>::max() ? len :
+                auto len = (int)children.size();
+                auto end = slice->end >= len ? len :
                            slice->end >= 0 ? slice->end : len + slice->end;
-                end = end > len ? len : end;
                 auto start = slice->start >= 0 ? slice->start : len + slice->start;
 
                 for (start = start >= 0 ? start : 0; start < end; start += slice->step)

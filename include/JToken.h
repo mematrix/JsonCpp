@@ -147,6 +147,8 @@ namespace JsonCpp
 
         virtual void SelectTokensCore(const NodePtrList &, unsigned int, std::list<const JToken *> &) const = 0;
 
+        virtual bool GetExprResult() const = 0;
+
     public:
         virtual JValueType GetType() const = 0;
 
