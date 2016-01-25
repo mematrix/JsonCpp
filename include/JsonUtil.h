@@ -7,7 +7,7 @@
 
 #include <string>
 #include <locale>
-#include <stack>
+#include <queue>
 
 #include "JValueType.h"
 #include "JsonException.h"
@@ -102,55 +102,188 @@ namespace JsonCpp
             return 3;
         }
 
-        static bool GetRePolishExpression(const char *start, const char *end, std::stack<ExprNode> &nodes)
+        static bool GetRePolishExpression(const char *str, std::queue<ExprNode> &nodes)
         {
             int paren = 0;
-            while (start < end)
+            auto tmp = SkipWhiteSpace(str);
+            std::queue<ExprNode> exprNodes;
+            tmp = TestSignDigit(tmp, exprNodes);
+
+            while (true)
             {
-                if (*start == '@')
+                tmp = SkipWhiteSpace(tmp);
+                if (*tmp == '(')
                 {
-                    if (*(start + 1) != '.')
+                    ExprNode node(ExprType::Operator);
+                    node.data.op = '(';
+                    exprNodes.push(std::move(node));
+
+                    ++tmp;
+                    tmp = TestSignDigit(tmp, exprNodes);
+                    ++paren;
+                }
+
+                if (!ReadNumOrProp(&tmp, exprNodes))
+                {
+                    return false;
+                }
+
+                tmp = SkipWhiteSpace(tmp);
+                if (*tmp == ')')
+                {
+                    if (--paren < 0)
                     {
                         return false;
                     }
-                    start += 2;
 
-                    unsigned int len = 0;
-                    auto tmp = start;
-                    while (true)
+                    ExprNode node(ExprType::Operator);
+                    node.data.op = ')';
+                    exprNodes.push(std::move(node));
+
+                    ++tmp;
+                }
+
+                tmp = SkipWhiteSpace(tmp);
+                if (*tmp)
+                {
+                    if (!ReadOperator(&tmp, exprNodes))
                     {
-                        switch (*start)
-                        {
-                            case '+':
-                            case '-':
-                            case '*':
-                            case '/':
-                            case '%':
-                            case ')':
-                            case ' ':
-                                break;
-
-                            case '(':
-                                return false;
-
-                            default:
-                                ++len;
-                                ++start;
-                                continue;
-                        }
-
-                        if (len == 0)
-                        {
-                            return false;
-                        }
-
-                        ExprNode node(ExprType::Property);
-                        node.data.prop = new std::string(tmp, len);
-                        nodes.push(std::move(node));
-                        break;
+                        return false;
                     }
                 }
-                ++start;
+                else
+                {
+                    break;
+                }
+            }
+            if (paren != 0)
+            {
+                return false;
+            }
+
+            // TODO: 生成逆波兰表达式结果.压入到返回队列中
+            return true;
+        }
+
+    private:
+        static const char *TestSignDigit(const char *str, std::queue<ExprNode> &nodes)
+        {
+            if (*str == '-')
+            {
+                ExprNode node(ExprType::Numeric);
+                node.data.num = 0;
+                nodes.push(std::move(node));
+
+                node.type = ExprType::Operator;
+                node.data.op = '-';
+                nodes.push(std::move(node));
+
+                return str + 1;
+            }
+            if (*str == '+')
+            {
+                return str + 1;
+            }
+
+            return str;
+        }
+
+        static bool ReadNumOrProp(const char **str, std::queue<ExprNode> &nodes)
+        {
+            auto tmp = *str;
+            tmp = SkipWhiteSpace(tmp);
+
+            if (*tmp == '@')
+            {
+                if (*(tmp + 1) != '.')
+                {
+                    return false;
+                }
+                tmp += 2;
+
+                unsigned int len = 0;
+                auto start = tmp;
+                while (true)
+                {
+                    switch (*start)
+                    {
+                        case '+':
+                        case '-':
+                        case '*':
+                        case '/':
+                        case '%':
+                        case ')':
+                        case ' ':
+                            break;
+
+                        case '(':
+                            return false;
+
+                        default:
+                            ++len;
+                            ++start;
+                            continue;
+                    }
+
+                    if (len == 0)
+                    {
+                        return false;
+                    }
+
+                    ExprNode node(ExprType::Property);
+                    node.data.prop = new std::string(tmp, len);
+                    nodes.push(std::move(node));
+                    break;
+                }
+
+                *str = start;
+                return true;
+            }
+            else
+            {
+                if (!std::isdigit(*tmp))
+                {
+                    return false;
+                }
+
+                char *end = nullptr;
+                auto num = std::strtod(tmp, &end);
+                if (nullptr == end)
+                {
+                    return false;
+                }
+
+                ExprNode node(ExprType::Numeric);
+                node.data.num = num;
+                nodes.push(std::move(node));
+
+                *str = end;
+                return true;
+            }
+        }
+
+        static bool ReadOperator(const char **str, std::queue<ExprNode> &nodes)
+        {
+            auto tmp = *str;
+
+            switch (*tmp)
+            {
+                case '+':
+                case '-':
+                case '*':
+                case '/':
+                case '%':
+                {
+                    ExprNode node(ExprType::Operator);
+                    node.data.op = *tmp;
+                    nodes.push(std::move(node));
+
+                    *str = tmp + 1;
+                    return true;
+                }
+
+                default:
+                    return false;
             }
         }
     };
