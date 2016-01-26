@@ -8,6 +8,7 @@
 #include <string>
 #include <locale>
 #include <queue>
+#include <stack>
 
 #include "JValueType.h"
 #include "JsonException.h"
@@ -106,7 +107,7 @@ namespace JsonCpp
         {
             int paren = 0;
             auto tmp = SkipWhiteSpace(str);
-            std::queue<ExprNode> exprNodes;
+            std::queue<ExprNode> exprNodes;     // 表达式节点
             tmp = TestSignDigit(tmp, exprNodes);
 
             while (true)
@@ -161,11 +162,117 @@ namespace JsonCpp
                 return false;
             }
 
-            // TODO: 生成逆波兰表达式结果.压入到返回队列中
+            std::stack<ExprNode> opStack;   // 运算符暂存堆栈
+            while (!exprNodes.empty())
+            {
+                ExprNode &node = exprNodes.front();
+
+                if (node.type == ExprType::Operator)
+                {
+                    char op = node.data.op;
+                    if (opStack.empty() || op == '(')
+                    {
+                        opStack.push(std::move(node));
+                        exprNodes.pop();
+                        continue;
+                    }
+                    if (op == ')')
+                    {
+                        while (!opStack.empty())
+                        {
+                            ExprNode &tmpOpNode = opStack.top();
+                            if (tmpOpNode.data.op != '(')
+                            {
+                                nodes.push(std::move(tmpOpNode));
+                                opStack.pop();
+                            }
+                            else
+                            {
+                                opStack.pop();
+                                break;
+                            }
+                        }
+
+                        exprNodes.pop();
+                        continue;
+                    }
+
+                    ExprNode &opNode = opStack.top();
+                    if (opNode.data.op == '(')
+                    {
+                        opStack.push(std::move(node));
+                        exprNodes.pop();
+                        continue;
+                    }
+                    if (OpLessOrEqual(op, opNode.data.op))
+                    {
+                        nodes.push(std::move(opNode));
+                        opStack.pop();
+                        while (!opStack.empty())
+                        {
+                            ExprNode &tmpOpNode = opStack.top();
+                            if (OpLessOrEqual(op, tmpOpNode.data.op))
+                            {
+                                nodes.push(std::move(tmpOpNode));
+                                opStack.pop();
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        }
+
+                        opStack.push(std::move(node));
+                        exprNodes.pop();
+                    }
+                    else
+                    {
+                        opStack.push(std::move(node));
+                        exprNodes.pop();
+                    }
+                }
+                else
+                {
+                    nodes.push(std::move(node));
+                    exprNodes.pop();
+                }
+            }
+            while (!opStack.empty())
+            {
+                nodes.push(std::move(opStack.top()));
+                opStack.pop();
+            }
+
             return true;
         }
 
     private:
+        static int GetOperatorPriority(char op)
+        {
+            switch (op)
+            {
+                case '+':
+                case '-':
+                    return 1;
+
+                case '*':
+                case '/':
+                case '%':
+                    return 3;
+
+                default:
+                    return 0;
+            }
+        }
+
+        static bool OpLessOrEqual(char op1, char op2)
+        {
+            int p1 = GetOperatorPriority(op1);
+            int p2 = GetOperatorPriority(op2);
+
+            return p1 <= p2;
+        }
+
         static const char *TestSignDigit(const char *str, std::queue<ExprNode> &nodes)
         {
             if (*str == '-')
