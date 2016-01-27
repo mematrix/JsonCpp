@@ -53,8 +53,8 @@ namespace JsonCpp
         {
             std::vector<int> *indices;
             SliceData *slice;
-            std::string *script;
-            std::string *filter;
+            std::queue<Expr::ExprNode> *script;
+            Expr::BoolExpression *filter;
         };
 
         struct SubscriptData
@@ -119,6 +119,18 @@ namespace JsonCpp
         {
             ActionType actionType;
             ActionData actionData;
+
+            ActionNode(ActionType t = ActionType::Wildcard) : actionType(t)
+            {
+                actionData.key = nullptr;
+            }
+
+            ActionNode(ActionNode &&node) : actionType(node.actionType)
+            {
+                actionData.key = node.actionData.key;
+                node.actionType = ActionType::Wildcard;
+                node.actionData.key = nullptr;
+            }
 
             ~ActionNode()
             {
