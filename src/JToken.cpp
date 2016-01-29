@@ -8,16 +8,19 @@ using namespace JsonCpp;
 
 NodePtrList JToken::ParseJPath(const char *str) const
 {
+    str = JsonUtil::SkipWhiteSpace(str);
     NodePtrList list;
     if (*str == '$')
     {
+        list.push_back(std::shared_ptr<ActionNode>(new ActionNode(ActionType::RootItem)));
         ++str;
     }
     else
     {
-        if (*str == '.' || *str == '[')
+        list.push_back(std::shared_ptr<ActionNode>(new ActionNode(ActionType::RootItem)));
+        if (!ReadNodeByDotRefer(&str, list))
         {
-            goto ret;
+            goto error;
         }
     }
 
@@ -31,7 +34,7 @@ NodePtrList JToken::ParseJPath(const char *str) const
                     str += 2;
                     if (*str == '*')
                     {
-                        list.push_back(std::shared_ptr(new ActionNode(ActionType::ReWildcard)));
+                        list.push_back(std::shared_ptr<ActionNode>(new ActionNode(ActionType::ReWildcard)));
                         ++str;
                         continue;
                     }
@@ -51,12 +54,46 @@ NodePtrList JToken::ParseJPath(const char *str) const
                     str = tmp;
                     continue;
                 }
+                else
+                {
+                    str = JsonUtil::SkipWhiteSpace(str, 1);
+                    if (*str == '*')
+                    {
+                        list.push_back(std::shared_ptr<ActionNode>(new ActionNode(ActionType::Wildcard)));
+                        ++str;
+                        continue;
+                    }
+
+                    auto tmp = str;
+                    while (*tmp && *tmp != '.' && *tmp != '[' && *tmp != ' ')
+                    {
+                        ++tmp;
+                    }
+                    if (tmp == str)
+                    {
+                        goto error;
+                    }
+                    auto node = std::shared_ptr<ActionNode>(new ActionNode(ActionType::ValueWithKey));
+                    node->actionData.key = new std::string(str, tmp - str);
+                    list.push_back(std::move(node));
+                    str = tmp;
+                    continue;
+                }
+
+            case '[':
+                break;
+
+            case ' ':
+                continue;
+
+            default:
+                goto error;
         }
     }
 
+    return list;
+
     error:
     list.clear();
-
-    ret:
     return list;
 }

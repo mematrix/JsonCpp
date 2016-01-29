@@ -27,9 +27,38 @@ namespace JsonCpp
          */
         NodePtrList ParseJPath(const char *) const;
 
+        friend bool ReadNodeByDotRefer(const char **s, NodePtrList& list)
+        {
+            auto str = *s;
+            if (*str == '*')
+            {
+                list.push_back(std::shared_ptr<ActionNode>(new ActionNode(ActionType::Wildcard)));
+                *s = str + 1;
+            }
+            else
+            {
+                auto tmp = str;
+                while (*tmp && *tmp != '.' && *tmp != '[' && *tmp != ' ')
+                {
+                    ++tmp;
+                }
+                if (tmp == str)
+                {
+                    return false;
+                }
+                auto node = std::shared_ptr<ActionNode>(new ActionNode(ActionType::ValueWithKey));
+                node->actionData.key = new std::string(str, tmp - str);
+                list.push_back(std::move(node));
+                *s = tmp;
+            }
+
+            return true;
+        }
+
     protected:
         enum ActionType
         {
+            RootItem = 0x00,
             ValueWithKey = 0x01,
             ArrayBySubscript = 0x02,
             Wildcard = 0x04,
