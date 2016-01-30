@@ -27,12 +27,13 @@ namespace JsonCpp
          */
         NodePtrList ParseJPath(const char *) const;
 
-        friend bool ReadNodeByDotRefer(const char **s, NodePtrList& list)
+        friend bool ReadNodeByDotRefer(const char **s, NodePtrList &list, bool isRecursive = false)
         {
             auto str = *s;
             if (*str == '*')
             {
-                list.push_back(std::shared_ptr<ActionNode>(new ActionNode(ActionType::Wildcard)));
+                ActionType t = isRecursive ? ActionType::ReWildcard : ActionType::Wildcard;
+                list.push_back(std::shared_ptr<ActionNode>(new ActionNode(t)));
                 *s = str + 1;
             }
             else
@@ -46,7 +47,9 @@ namespace JsonCpp
                 {
                     return false;
                 }
-                auto node = std::shared_ptr<ActionNode>(new ActionNode(ActionType::ValueWithKey));
+
+                ActionType t = isRecursive ? ActionType::ReValueWithKey : ActionType::ValueWithKey;
+                auto node = std::shared_ptr<ActionNode>(new ActionNode(t));
                 node->actionData.key = new std::string(str, tmp - str);
                 list.push_back(std::move(node));
                 *s = tmp;

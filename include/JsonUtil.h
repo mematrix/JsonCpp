@@ -106,8 +106,8 @@ namespace JsonCpp
         static bool GetRePolishExpression(const char *str, std::queue<ExprNode> &nodes)
         {
             int paren = 0;
-            auto tmp = SkipWhiteSpace(str);
             std::queue<ExprNode> exprNodes;     // 表达式节点
+            auto tmp = SkipWhiteSpace(str);
             tmp = TestSignDigit(tmp, exprNodes);
 
             while (true)
@@ -119,7 +119,7 @@ namespace JsonCpp
                     node.data.op = '(';
                     exprNodes.push(std::move(node));
 
-                    ++tmp;
+                    tmp = SkipWhiteSpace(tmp, 1);
                     tmp = TestSignDigit(tmp, exprNodes);
                     ++paren;
                 }
@@ -141,10 +141,9 @@ namespace JsonCpp
                     node.data.op = ')';
                     exprNodes.push(std::move(node));
 
-                    ++tmp;
+                    tmp = SkipWhiteSpace(tmp, 1);
                 }
 
-                tmp = SkipWhiteSpace(tmp);
                 if (*tmp)
                 {
                     if (!ReadOperator(&tmp, exprNodes))
