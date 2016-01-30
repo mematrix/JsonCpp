@@ -31,57 +31,135 @@ NodePtrList JToken::ParseJPath(const char *str) const
             case '.':
                 if (*(str + 1) == '.')
                 {
-                    str += 2;
-                    if (*str == '*')
-                    {
-                        list.push_back(std::shared_ptr<ActionNode>(new ActionNode(ActionType::ReWildcard)));
-                        ++str;
-                        continue;
-                    }
-
-                    auto tmp = str;
-                    while (*tmp && *tmp != '.' && *tmp != '[' && *tmp != ' ')
-                    {
-                        ++tmp;
-                    }
-                    if (tmp == str)
+                    str = JsonUtil::SkipWhiteSpace(str, 2);
+                    if (!ReadNodeByDotRefer(&str, list, true))
                     {
                         goto error;
                     }
-                    auto node = std::shared_ptr<ActionNode>(new ActionNode(ActionType::ReValueWithKey));
-                    node->actionData.key = new std::string(str, tmp - str);
-                    list.push_back(std::move(node));
-                    str = tmp;
                     continue;
                 }
                 else
                 {
                     str = JsonUtil::SkipWhiteSpace(str, 1);
-                    if (*str == '*')
-                    {
-                        list.push_back(std::shared_ptr<ActionNode>(new ActionNode(ActionType::Wildcard)));
-                        ++str;
-                        continue;
-                    }
-
-                    auto tmp = str;
-                    while (*tmp && *tmp != '.' && *tmp != '[' && *tmp != ' ')
-                    {
-                        ++tmp;
-                    }
-                    if (tmp == str)
+                    if (!ReadNodeByDotRefer(&str, list))
                     {
                         goto error;
                     }
-                    auto node = std::shared_ptr<ActionNode>(new ActionNode(ActionType::ValueWithKey));
-                    node->actionData.key = new std::string(str, tmp - str);
-                    list.push_back(std::move(node));
-                    str = tmp;
                     continue;
                 }
 
             case '[':
-                break;
+            {
+                str = JsonUtil::SkipWhiteSpace(str, 1);
+                auto node = std::shared_ptr<ActionNode>(new ActionNode(ActionType::ArrayBySubscript));
+                node->actionData.subData = new SubscriptData();
+                auto data = node->actionData.subData;
+                if (*str == '*')
+                {
+                    data->filterType = SubscriptData::All;
+                }
+                else if (*str == '?')
+                {
+                    str = JsonUtil::SkipWhiteSpace(str, 1);
+                    if (*str != '(')
+                    {
+                        goto error;
+                    }
+                    str = JsonUtil::SkipWhiteSpace(str, 1);
+
+                    Expr::BoolOpType opType = Expr::Exist;
+                    const char *start = str;
+                    const char *last = nullptr;
+                    const char *paren = nullptr;
+                    const char *op = nullptr;
+                    while (*str)
+                    {
+                        switch (*str)
+                        {
+                            case '>':
+                            {
+                                if (opType != Expr::Exist)
+                                {
+                                    goto error;
+                                }
+                                op = str;
+                                if (*++str == '=')
+                                {
+                                    opType = Expr::GreaterEqual;
+                                    ++str;
+                                }
+                                else
+                                {
+                                    opType = Expr::Greater;
+                                }
+                                continue;
+                            }
+
+                            case '<':
+                            {
+                                if (opType != Expr::Exist)
+                                {
+                                    goto error;
+                                }
+                                op = str;
+                                if (*++str == '=')
+                                {
+                                    opType = Expr::LessEqual;
+                                    ++str;
+                                }
+                                else
+                                {
+                                    opType = Expr::Less;
+                                }
+                                continue;
+                            }
+
+                            case '=':
+                            case '!':
+                            {
+                                if (opType != Expr::Exist)
+                                {
+                                    goto error;
+                                }
+                                op = str;
+                                if (*(str + 1) != '=')
+                                {
+                                    goto error;
+                                }
+                                opType = *str == '=' ? Expr::Equal : Expr::NotEqual;
+                                str += 2;
+                                continue;
+                            }
+
+                            case ')':
+                                paren = str;
+                                continue;
+
+                            case ']':
+                                break;
+
+                            case ' ':
+                                continue;
+
+                            default:
+                                last = str;
+                        }
+
+                        if (last >= paren || op > paren || op > last || !last)
+                        {
+                            goto error;
+                        }
+                        break;
+                    }
+
+                    if (op)
+                    {
+                        std::string leftExpr(start, op - start);
+                        data->filterData.filter = new Expr::BoolExpression(opType, true);
+                        JsonUtil::GetRePolishExpression(leftExpr.c_str(), data->filterData.filter->leftRePolishExpr);
+                    }
+                }
+            }
 
             case ' ':
                 continue;
