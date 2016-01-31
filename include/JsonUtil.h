@@ -34,8 +34,6 @@ namespace JsonCpp
 
     struct JsonUtil
     {
-        using namespace Expr;
-
         static const char *SkipWhiteSpace(const char *str)
         {
             while (std::isspace(*str))
@@ -103,8 +101,10 @@ namespace JsonCpp
             return 3;
         }
 
-        static bool GetRePolishExpression(const char *str, std::queue<ExprNode> &nodes)
+        static bool GetRePolishExpression(const char *str, std::queue<Expr::ExprNode> &nodes)
         {
+            using namespace Expr;
+
             int paren = 0;
             std::queue<ExprNode> exprNodes;     // 表达式节点
             auto tmp = SkipWhiteSpace(str);
@@ -272,8 +272,10 @@ namespace JsonCpp
             return p1 <= p2;
         }
 
-        static const char *TestSignDigit(const char *str, std::queue<ExprNode> &nodes)
+        static const char *TestSignDigit(const char *str, std::queue<Expr::ExprNode> &nodes)
         {
+            using namespace Expr;
+
             if (*str == '-')
             {
                 ExprNode node(ExprType::Numeric);
@@ -294,8 +296,10 @@ namespace JsonCpp
             return str;
         }
 
-        static bool ReadNumOrProp(const char **str, std::queue<ExprNode> &nodes)
+        static bool ReadNumOrProp(const char **str, std::queue<Expr::ExprNode> &nodes)
         {
+            using namespace Expr;
+
             auto tmp = *str;
             tmp = SkipWhiteSpace(tmp);
 
@@ -368,8 +372,10 @@ namespace JsonCpp
             }
         }
 
-        static bool ReadOperator(const char **str, std::queue<ExprNode> &nodes)
+        static bool ReadOperator(const char **str, std::queue<Expr::ExprNode> &nodes)
         {
+            using namespace Expr;
+
             auto tmp = *str;
 
             switch (*tmp)
