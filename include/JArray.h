@@ -28,6 +28,8 @@ namespace JsonCpp
 
         virtual void SelectTokensCore(const NodePtrList &, unsigned int, std::list<const JToken *> &) const override;
 
+        virtual bool GetExprResult() const override { return false;}
+
     public:
         JArray(const char *str) : children(), aryString(nullptr), fmtString(nullptr)
         {

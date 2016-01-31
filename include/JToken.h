@@ -17,6 +17,8 @@ namespace JsonCpp
 {
     class JToken
     {
+    protected:
+        struct ActionNode;
         using NodePtrList = std::vector<std::shared_ptr<ActionNode>>;
 
     private:
@@ -186,6 +188,7 @@ namespace JsonCpp
         };
 
 
+    public:
         // JPath syntax parse core.
         virtual const JToken *SelectTokenCore(const NodePtrList &, unsigned int) const = 0;
 
