@@ -2,6 +2,8 @@
 // Created by qife on 16/1/12.
 //
 
+#include <stack>
+
 #include "JArray.h"
 
 using namespace JsonCpp;
@@ -85,7 +87,97 @@ const JToken *JArray::SelectTokenCore(const NodePtrList &nodes, unsigned int cur
                 break;
             }
 
-            case SubscriptData::Script:break;
+            case SubscriptData::Script:
+            {
+                auto script = data->filterData.script;
+                std::stack<int> computeStack;
+                while (script->size() != 0)
+                {
+                    Expr::ExprNode &item = script->front();
+                    switch (item.type)
+                    {
+                        case Expr::Numeric:
+                        {
+                            computeStack.push((int)item.data.num);
+                            break;
+                        }
+
+                        case Expr::Property:
+                        {
+                            auto prop = item.data.prop;
+                            if (prop->compare("length"))    // handle some property...
+                            {
+                                computeStack.push((int)children.size());
+                                break;
+                            }
+                            else
+                            {
+                                return nullptr;
+                            }
+                        }
+
+                        case Expr::Operator:
+                        {
+                            if (computeStack.size() < 2)
+                            {
+                                return nullptr;
+                            }
+                            int num2 = computeStack.top();
+                            computeStack.pop();
+                            int num1 = computeStack.top();
+                            computeStack.pop();
+
+                            switch (item.data.op)
+                            {
+                                case '+':
+                                    computeStack.push(num1 + num2);
+                                    break;
+
+                                case '-':
+                                    computeStack.push(num1 - num2);
+                                    break;
+
+                                case '*':
+                                    computeStack.push(num1 * num2);
+                                    break;
+
+                                case '/':
+                                    computeStack.push(num1 / num2);
+                                    break;
+
+                                case '%':
+                                    computeStack.push(num1 % num2);
+                                    break;
+
+                                default:
+                                    return nullptr;
+                            }
+
+                            break;
+                        }
+
+                        case Expr::Boolean:
+                            return nullptr;
+                    }
+
+                    script->pop();
+                }
+
+                if (computeStack.size() == 1)
+                {
+                    int index = computeStack.top();
+                    if (index >= 0 && index < children.size())
+                    {
+                        if (auto token = children[index]->SelectTokenCore(nodes, cur + 1))
+                        {
+                            return token;
+                        }
+                    }
+                }
+
+                break;
+            }
+
             case SubscriptData::Filter:break;
 
             case SubscriptData::All:
@@ -103,6 +195,11 @@ const JToken *JArray::SelectTokenCore(const NodePtrList &nodes, unsigned int cur
     }
 
     return nullptr;
+}
+
+void JArray::SelectTokensCore(const NodePtrList &, unsigned int, std::list<const JToken *> &) const
+{
+
 }
 
 JValueType JArray::GetType() const
