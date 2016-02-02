@@ -7,7 +7,6 @@
 
 #include <string>
 #include <locale>
-#include <queue>
 #include <stack>
 
 #include "JValueType.h"
@@ -34,6 +33,8 @@ namespace JsonCpp
 
     struct JsonUtil
     {
+        using NodeDeque = std::deque<Expr::ExprNode>;
+
         static const char *SkipWhiteSpace(const char *str)
         {
             while (std::isspace(*str))
@@ -101,7 +102,7 @@ namespace JsonCpp
             return 3;
         }
 
-        static bool GetRePolishExpression(const char *str, std::queue<Expr::ExprNode> &nodes)
+        static bool GetRePolishExpression(const char *str, NodeDeque &nodes)
         {
             using namespace Expr;
 
@@ -182,7 +183,7 @@ namespace JsonCpp
                             ExprNode &tmpOpNode = opStack.top();
                             if (tmpOpNode.data.op != '(')
                             {
-                                nodes.push(std::move(tmpOpNode));
+                                nodes.push_back(std::move(tmpOpNode));
                                 opStack.pop();
                             }
                             else
@@ -205,14 +206,14 @@ namespace JsonCpp
                     }
                     if (OpLessOrEqual(op, opNode.data.op))
                     {
-                        nodes.push(std::move(opNode));
+                        nodes.push_back(std::move(opNode));
                         opStack.pop();
                         while (!opStack.empty())
                         {
                             ExprNode &tmpOpNode = opStack.top();
                             if (OpLessOrEqual(op, tmpOpNode.data.op))
                             {
-                                nodes.push(std::move(tmpOpNode));
+                                nodes.push_back(std::move(tmpOpNode));
                                 opStack.pop();
                             }
                             else
@@ -232,17 +233,98 @@ namespace JsonCpp
                 }
                 else
                 {
-                    nodes.push(std::move(node));
+                    nodes.push_back(std::move(node));
                     exprNodes.pop();
                 }
             }
             while (!opStack.empty())
             {
-                nodes.push(std::move(opStack.top()));
+                nodes.push_back(std::move(opStack.top()));
                 opStack.pop();
             }
 
             return true;
+        }
+
+        static bool ComputeRePolish(const NodeDeque &nodes, bool (*get)(const std::string &, int *), int *result)
+        {
+            std::stack<int> computeStack;
+
+            for (const auto &item : nodes)
+            {
+                switch (item.type)
+                {
+                    case Expr::Numeric:
+                    {
+                        computeStack.push((int)item.data.num);
+                        continue;
+                    }
+
+                    case Expr::Property:
+                    {
+                        int value = 0;
+                        if (get(*item.data.prop, &value))
+                        {
+                            computeStack.push(value);
+                            continue;
+                        }
+                        else
+                        {
+                            return false;
+                        }
+                    }
+
+                    case Expr::Operator:
+                    {
+                        if (computeStack.size() < 2)
+                        {
+                            return false;
+                        }
+
+                        int num2 = computeStack.top();
+                        computeStack.pop();
+                        int num1 = computeStack.top();
+                        computeStack.pop();
+
+                        switch (item.data.op)
+                        {
+                            case '+':
+                                computeStack.push(num1 + num2);
+                                continue;
+
+                            case '-':
+                                computeStack.push(num1 - num2);
+                                continue;
+
+                            case '*':
+                                computeStack.push(num1 * num2);
+                                continue;
+
+                            case '/':
+                                computeStack.push(num1 / num2);
+                                continue;
+
+                            case '%':
+                                computeStack.push(num1 % num2);
+                                continue;
+
+                            default:
+                                return false;
+                        }
+                    }
+
+                    case Expr::Boolean:
+                        return false;
+                }
+            }
+
+            if (computeStack.size() == 1)
+            {
+                *result = computeStack.top();
+                return true;
+            }
+
+            return false;
         }
 
     private:
