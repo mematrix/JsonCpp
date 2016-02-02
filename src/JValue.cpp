@@ -56,6 +56,23 @@ void JValue::SelectTokensCore(const NodePtrList &nodes, unsigned int cur, std::l
     }
 }
 
+bool JValue::GetExprResult(Expr::BoolExpression &expr) const {
+    if(expr.type == Expr::BoolOpType::Exist && expr.leftRePolishExpr.size() == 1){
+        Expr::ExprNode &node = expr.leftRePolishExpr.front();
+        if(node.type == Expr::ExprType::Property){
+            auto prop = node.data.prop;
+            if(prop->compare("value") == 0 && autoMem.type == JValueType::Boolean){
+                return autoMem.value.bVal;
+            }
+        }
+    }
+    else{
+        
+    }
+
+    return false;
+}
+
 JValueType JValue::GetType() const
 {
     return autoMem.type;

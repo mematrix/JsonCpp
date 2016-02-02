@@ -90,82 +90,18 @@ const JToken *JArray::SelectTokenCore(const NodePtrList &nodes, unsigned int cur
             case SubscriptData::Script:
             {
                 auto script = data->filterData.script;
-                std::stack<int> computeStack;
-                while (script->size() != 0)
+                int index = 0;
+                auto getMethod = [&children](const std::string &str, int *value) -> bool
                 {
-                    Expr::ExprNode &item = script->front();
-                    switch (item.type)
+                    if (str.compare("length"))
                     {
-                        case Expr::Numeric:
-                        {
-                            computeStack.push((int)item.data.num);
-                            break;
-                        }
-
-                        case Expr::Property:
-                        {
-                            auto prop = item.data.prop;
-                            if (prop->compare("length"))    // handle some property...
-                            {
-                                computeStack.push((int)children.size());
-                                break;
-                            }
-                            else
-                            {
-                                return nullptr;
-                            }
-                        }
-
-                        case Expr::Operator:
-                        {
-                            if (computeStack.size() < 2)
-                            {
-                                return nullptr;
-                            }
-                            int num2 = computeStack.top();
-                            computeStack.pop();
-                            int num1 = computeStack.top();
-                            computeStack.pop();
-
-                            switch (item.data.op)
-                            {
-                                case '+':
-                                    computeStack.push(num1 + num2);
-                                    break;
-
-                                case '-':
-                                    computeStack.push(num1 - num2);
-                                    break;
-
-                                case '*':
-                                    computeStack.push(num1 * num2);
-                                    break;
-
-                                case '/':
-                                    computeStack.push(num1 / num2);
-                                    break;
-
-                                case '%':
-                                    computeStack.push(num1 % num2);
-                                    break;
-
-                                default:
-                                    return nullptr;
-                            }
-
-                            break;
-                        }
-
-                        case Expr::Boolean:
-                            return nullptr;
+                        *value = (int)children.size();
+                        return true;
                     }
-
-                    script->pop();
-                }
-
-                if (computeStack.size() == 1)
+                    return false;
+                };
+                if (JsonUtil::ComputeRePolish(*script, getMethod, &index))
                 {
-                    int index = computeStack.top();
                     if (index >= 0 && index < children.size())
                     {
                         if (auto token = children[index]->SelectTokenCore(nodes, cur + 1))
@@ -178,7 +114,21 @@ const JToken *JArray::SelectTokenCore(const NodePtrList &nodes, unsigned int cur
                 break;
             }
 
-            case SubscriptData::Filter:break;
+            case SubscriptData::Filter:
+            {
+                auto filter = data->filterData.filter;
+                for (const auto &child : children)
+                {
+                    if (child->GetExprResult(*filter))
+                    {
+                        if (auto token = child->SelectTokenCore(nodes, cur + 1))
+                        {
+                            return token;
+                        }
+                    }
+                }
+                break;
+            }
 
             case SubscriptData::All:
             {
