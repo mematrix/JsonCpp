@@ -30,7 +30,7 @@ namespace JsonCpp
 
         virtual void SelectTokensCore(const NodePtrList &, unsigned int, std::list<const JToken *> &) const override;
 
-        virtual bool GetExprResult() const override { return false;}
+        virtual bool GetExprResult(Expr::BoolExpression &) const override;
 
     public:
         JObject(const char *str) : children(), objString(nullptr), fmtString(nullptr)

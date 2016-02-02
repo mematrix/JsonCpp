@@ -87,7 +87,7 @@ namespace JsonCpp
         {
             std::vector<int> *indices;
             SliceData *slice;
-            std::queue<Expr::ExprNode> *script;
+            std::deque<Expr::ExprNode> *script;
             Expr::BoolExpression *filter;
         };
 
@@ -194,7 +194,7 @@ namespace JsonCpp
 
         virtual void SelectTokensCore(const NodePtrList &, unsigned int, std::list<const JToken *> &) const = 0;
 
-        virtual bool GetExprResult() const = 0;
+        virtual bool GetExprResult(Expr::BoolExpression &) const = 0;
 
     public:
         virtual JValueType GetType() const = 0;

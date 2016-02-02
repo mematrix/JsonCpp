@@ -221,7 +221,7 @@ JToken::NodePtrList JToken::ParseJPath(const char *str) const
                     }
 
                     data->filterType = SubscriptData::Script;
-                    data->filterData.script = new std::queue<Expr::ExprNode>();
+                    data->filterData.script = new std::deque<Expr::ExprNode>();
                     std::string expr(start, end + 1);
                     if (!JsonUtil::GetRePolishExpression(expr.c_str(), *data->filterData.script))
                     {

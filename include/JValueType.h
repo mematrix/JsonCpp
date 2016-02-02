@@ -6,7 +6,7 @@
 #define CPPPARSER_JVALUETYPE_H
 
 #include <string>
-#include <queue>
+#include <deque>
 
 namespace JsonCpp
 {
@@ -97,14 +97,14 @@ namespace JsonCpp
         struct BoolExpression
         {
             BoolOpType type;
-            std::queue<ExprNode> leftRePolishExpr;
-            std::queue<ExprNode> *rightRePolishExpr;
+            std::deque<ExprNode> leftRePolishExpr;
+            std::deque<ExprNode> *rightRePolishExpr;
 
             BoolExpression(BoolOpType t = BoolOpType::Exist, bool hasRight = false) : type(t)
             {
                 if (hasRight)
                 {
-                    rightRePolishExpr = new std::queue<ExprNode>();
+                    rightRePolishExpr = new std::deque<ExprNode>();
                 }
             }
 
