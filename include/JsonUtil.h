@@ -246,9 +246,9 @@ namespace JsonCpp
             return true;
         }
 
-        static bool ComputeRePolish(const NodeDeque &nodes, bool (*get)(const std::string &, int *), int *result)
+        static bool ComputeRePolish(const NodeDeque &nodes, bool (*get)(const std::string &, double *), double *result)
         {
-            std::stack<int> computeStack;
+            std::stack<double> computeStack;
 
             for (const auto &item : nodes)
             {
@@ -256,13 +256,13 @@ namespace JsonCpp
                 {
                     case Expr::Numeric:
                     {
-                        computeStack.push((int)item.data.num);
+                        computeStack.push(item.data.num);
                         continue;
                     }
 
                     case Expr::Property:
                     {
-                        int value = 0;
+                        double value = 0.0;
                         if (get(*item.data.prop, &value))
                         {
                             computeStack.push(value);
@@ -281,9 +281,9 @@ namespace JsonCpp
                             return false;
                         }
 
-                        int num2 = computeStack.top();
+                        double num2 = computeStack.top();
                         computeStack.pop();
-                        int num1 = computeStack.top();
+                        double num1 = computeStack.top();
                         computeStack.pop();
 
                         switch (item.data.op)
@@ -305,7 +305,7 @@ namespace JsonCpp
                                 continue;
 
                             case '%':
-                                computeStack.push(num1 % num2);
+                                computeStack.push((int)num1 % (int)num2); // TODO: test int value
                                 continue;
 
                             default:
