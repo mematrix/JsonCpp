@@ -56,18 +56,66 @@ void JValue::SelectTokensCore(const NodePtrList &nodes, unsigned int cur, std::l
     }
 }
 
-bool JValue::GetExprResult(Expr::BoolExpression &expr) const {
-    if(expr.type == Expr::BoolOpType::Exist && expr.leftRePolishExpr.size() == 1){
+bool JValue::GetExprResult(Expr::BoolExpression &expr) const
+{
+    if (expr.type == Expr::BoolOpType::Exist && expr.leftRePolishExpr.size() == 1)
+    {
         Expr::ExprNode &node = expr.leftRePolishExpr.front();
-        if(node.type == Expr::ExprType::Property){
+        if (node.type == Expr::ExprType::Property)
+        {
             auto prop = node.data.prop;
-            if(prop->compare("value") == 0 && autoMem.type == JValueType::Boolean){
+            if (prop->compare("value") == 0 && autoMem.type == JValueType::Boolean)
+            {
                 return autoMem.value.bVal;
             }
         }
     }
-    else{
-        
+    else
+    {
+        auto getMethod = [&autoMem](const std::string &str, double *value) -> bool
+        {
+            if (str.compare("value") == 0 && autoMem.type == JValueType::Number)
+            {
+                *value = autoMem.value.num;
+                return true;
+            }
+            return false;
+        };
+
+        double leftValue = 0.0;
+        if (!JsonUtil::ComputeRePolish(expr.leftRePolishExpr, getMethod, &leftValue))
+        {
+            return false;
+        }
+        double rightValue = 0.0;
+        if (!JsonUtil::ComputeRePolish(*expr.rightRePolishExpr, getMethod, &rightValue))
+        {
+            return false;
+        }
+
+        switch (expr.type)
+        {
+            case Expr::Greater:
+                return leftValue > rightValue;
+
+            case Expr::Less:
+                return leftValue < rightValue;
+
+            case Expr::GreaterEqual:
+                return leftValue >= rightValue;
+
+            case Expr::LessEqual:
+                return leftValue <= rightValue;
+
+            case Expr::Equal:
+                return leftValue == rightValue;
+
+            case Expr::NotEqual:
+                return leftValue != rightValue;
+
+            case Expr::Exist:
+                break;
+        }
     }
 
     return false;

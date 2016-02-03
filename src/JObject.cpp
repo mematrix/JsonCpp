@@ -180,6 +180,25 @@ void JObject::SelectTokensCore(const NodePtrList &nodes, unsigned int cur, std::
     }
 }
 
+bool JObject::GetExprResult(Expr::BoolExpression &expr) const
+{
+    if (expr.type == Expr::BoolOpType::Exist && expr.leftRePolishExpr.size() == 1)
+    {
+        Expr::ExprNode &node = expr.leftRePolishExpr.front();
+        if (node.type == Expr::ExprType::Property)
+        {
+            auto prop = node.data.prop;
+            return children.find(*prop) != children.end();
+        }
+    }
+    else
+    {
+        //
+    }
+
+    return false;
+}
+
 JValueType JObject::GetType() const
 {
     return JValueType::Object;
