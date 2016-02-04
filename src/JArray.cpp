@@ -91,7 +91,7 @@ const JToken *JArray::SelectTokenCore(const NodePtrList &nodes, unsigned int cur
             {
                 auto script = data->filterData.script;
                 double rel = 0;
-                auto getMethod = [&children](const std::string &str, double *value) -> bool
+                auto getMethod = [this](const std::string &str, double *value) -> bool
                 {
                     if (str.compare("length"))
                     {
@@ -202,7 +202,7 @@ void JArray::SelectTokensCore(const NodePtrList &nodes, unsigned int cur, std::l
         {
             auto script = data->filterData.script;
             double rel = 0;
-            auto getMethod = [&children](const std::string &str, double *value) -> bool
+            auto getMethod = [this](const std::string &str, double *value) -> bool
             {
                 if (str.compare("length"))
                 {
@@ -256,7 +256,7 @@ bool JArray::GetExprResult(Expr::BoolExpression &expr) const
         return false;
     }
 
-    auto getMethod = [&children](const std::string &str, double *value) -> bool
+    auto getMethod = [this](const std::string &str, double *value) -> bool
     {
         if (str.compare("length") == 0)
         {

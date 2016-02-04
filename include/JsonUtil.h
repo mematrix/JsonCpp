@@ -8,6 +8,8 @@
 #include <string>
 #include <locale>
 #include <stack>
+#include <queue>
+#include <functional>
 
 #include "JValueType.h"
 #include "JsonException.h"
@@ -246,7 +248,7 @@ namespace JsonCpp
             return true;
         }
 
-        static bool ComputeRePolish(const NodeDeque &nodes, bool (*get)(const std::string &, double *), double *result)
+        static bool ComputeRePolish(const NodeDeque &nodes, const std::function<bool(const std::string &, double *)> &get, double *result)
         {
             std::stack<double> computeStack;
 

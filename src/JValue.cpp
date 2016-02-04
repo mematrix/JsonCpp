@@ -72,7 +72,7 @@ bool JValue::GetExprResult(Expr::BoolExpression &expr) const
     }
     else
     {
-        auto getMethod = [&autoMem](const std::string &str, double *value) -> bool
+        auto getMethod = [this](const std::string &str, double *value) -> bool
         {
             if (str.compare("value") == 0 && autoMem.type == JValueType::Number)
             {
