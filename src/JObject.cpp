@@ -64,6 +64,7 @@ const JToken *JObject::SelectTokenCore(const NodePtrList &nodes, unsigned int cu
         }
 
         case ArrayBySubscript:
+        case RootItem:
         {
             return nullptr;
         }
@@ -193,7 +194,57 @@ bool JObject::GetExprResult(Expr::BoolExpression &expr) const
     }
     else
     {
-        //
+        auto getMethod = [this](const std::string &str, double *value) -> bool
+        {
+            auto child = children.find(str);
+            if (child != children.end() && child->second->GetType() == JValueType::Number)
+            {
+                *value = (double)*child->second;
+                return true;
+            }
+
+            if (str.compare("count"))
+            {
+                *value = children.size();
+                return true;
+            }
+
+            return false;
+        };
+
+        double leftValue = 0.0;
+        if (!JsonUtil::ComputeRePolish(expr.leftRePolishExpr, getMethod, &leftValue))
+        {
+            return false;
+        }
+        double rightValue = 0.0;
+        if (!JsonUtil::ComputeRePolish(*expr.rightRePolishExpr, getMethod, &rightValue))
+        {
+            return false;
+        }
+
+        switch (expr.type)
+        {
+            case Expr::Greater:
+                return leftValue > rightValue;
+
+            case Expr::Less:
+                return leftValue < rightValue;
+
+            case Expr::GreaterEqual:
+                return leftValue >= rightValue;
+
+            case Expr::LessEqual:
+                return leftValue <= rightValue;
+
+            case Expr::Equal:
+                return leftValue == rightValue;
+
+            case Expr::NotEqual:
+                return leftValue == rightValue;
+
+            case Expr::Exist:break;
+        }
     }
 
     return false;
