@@ -42,7 +42,7 @@ const JToken *JArray::SelectTokenCore(const NodePtrList &nodes, unsigned int cur
         return this;
     }
 
-    auto node = nodes[cur - 1];
+    auto node = nodes[cur];
     if (node->actionType == ActionType::ArrayBySubscript)
     {
         auto data = node->actionData.subData;
@@ -156,7 +156,7 @@ void JArray::SelectTokensCore(const NodePtrList &nodes, unsigned int cur, std::l
         return;
     }
 
-    auto node = nodes[cur - 1];
+    auto node = nodes[cur];
     if (node->actionType != ActionType::ArrayBySubscript)
     {
         return;

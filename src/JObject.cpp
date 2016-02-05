@@ -50,7 +50,7 @@ const JToken *JObject::SelectTokenCore(const NodePtrList &nodes, unsigned int cu
         return this;
     }
 
-    auto node = nodes[cur - 1];
+    auto node = nodes[cur];
     switch (node->actionType)
     {
         case ActionType::ValueWithKey:
@@ -131,7 +131,7 @@ void JObject::SelectTokensCore(const NodePtrList &nodes, unsigned int cur, std::
         return;
     }
 
-    auto node = nodes[cur - 1];
+    auto node = nodes[cur];
     switch (node->actionType)
     {
         case ValueWithKey:
@@ -144,7 +144,9 @@ void JObject::SelectTokensCore(const NodePtrList &nodes, unsigned int cur, std::
             break;
         }
 
-        case ArrayBySubscript: break;
+        case RootItem:
+        case ArrayBySubscript:
+            break;
 
         case Wildcard:
         {

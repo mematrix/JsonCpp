@@ -134,16 +134,20 @@ JToken::NodePtrList JToken::ParseJPath(const char *str) const
 
                             case ')':
                                 paren = str;
+                                ++str;
                                 continue;
 
                             case ']':
                                 break;
 
                             case ' ':
+                                ++str;
                                 continue;
 
                             default:
                                 last = str;
+                                ++str;
+                                continue;
                         }
 
                         break;
