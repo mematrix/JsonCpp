@@ -31,3 +31,8 @@
 ### Jetbrains template
 
 .idea/
+
+
+### Jetbrains Clion cmake build
+
+cmake-build-debug/

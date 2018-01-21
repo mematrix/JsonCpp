@@ -1,79 +1,60 @@
 //
-// Created by qife on 16/1/10.
+// Created by Charles on 2018/1/18.
 //
 
-#ifndef CPPPARSER_JTOKEN_H
-#define CPPPARSER_JTOKEN_H
+#ifndef JSONCPP_JSON_H
+#define JSONCPP_JSON_H
 
 #include <string>
 #include <vector>
-#include <list>
-#include <limits>
+#include <map>
 #include <memory>
-#include <cassert>
-
-#include "JsonUtil.h"
 
 namespace json {
 
-namespace util {
+class JToken;
 
-inline static const char *SkipWhiteSpace(const char *str)
+enum class JsonFormatOption
 {
-    while (std::isspace(*str)) {
-        ++str;
-    }
-    return str;
-}
+    NoFormat,
+    IndentSpace,
+    IndentTab
+};
 
-inline static const char *SkipWhiteSpace(const char *str, unsigned int start)
-{
-    str += start;
-    return SkipWhiteSpace(str);
-}
+/**
+ * parse json string to {@code JToken}.
+ * @param json json format string.
+ * @param error out param, a code to identify parse error, 0 means no error. {@code nullptr} can be passed.
+ * @return if no error occurs, return a {@code JToken} pointer, use {@code JToken::GetType} to determine
+ * the actual json type. return a default empty {@code std::unique_ptr} object if any errors occur.
+ */
+std::unique_ptr<JToken> Parse(const std::string &json, int *error);
 
-inline static bool AssertEqual(char a, char b)
-{
-    assert(a == b);
-    return a == b;
-}
+/**
+ * parse c-style json string to {@code JToken}.
+ * @param json c-style json format string.
+ * @param error out param, a code to identify parse error, 0 means no error. {@code nullptr} can be passed.
+ * @return if no error occurs, return a {@code JToken} pointer, use {@code JToken::GetType} to determine
+ * the actual json type. return a default empty {@code std::unique_ptr} object if any errors occur.
+ */
+std::unique_ptr<JToken> Parse(const char *json, int *error);
 
-inline static bool Assert(bool b)
-{
-    assert(b);
-    return b;
-}
+/**
+ * format json instance.
+ * @param token a json instance to be formatted.
+ * @param option format indention option.
+ * @param indention indention count, used only when option is {@code JsonFormatOption::IndentSpace} or
+ * {@code JsonFormatOption::IndentTab}.
+ * @return formatted string.
+ */
+std::string ToString(const JToken &token, JsonFormatOption option = JsonFormatOption::NoFormat, unsigned indention = 1);
 
-inline static bool AssertEndStr(const char *str)
-{
-    str = SkipWhiteSpace(str);
-    assert(*str == '\0');
-    return *str == '\0';
-}
-
-static int Unicode2ToUtf8(unsigned short unicodeChar, char *utf8Str)
-{
-    if (unicodeChar <= 0x007f) {
-        // * U-00000000 - U-0000007F:  0xxxxxxx
-        *utf8Str = static_cast<char>(unicodeChar);
-        return 1;
-    }
-
-    if (unicodeChar <= 0x07ff) {
-        // * U-00000080 - U-000007FF:  110xxxxx 10xxxxxx
-        utf8Str[1] = static_cast<char>((unicodeChar & 0x3f) | 0x80);
-        utf8Str[0] = static_cast<char>(((unicodeChar >> 6) & 0x1f) | 0xc0);
-        return 2;
-    }
-
-    // * U-00000800 - U-0000FFFF:  1110xxxx 10xxxxxx 10xxxxxx
-    utf8Str[2] = static_cast<char>((unicodeChar & 0x3f) | 0x80);
-    utf8Str[1] = static_cast<char>(((unicodeChar >> 6) & 0x3f) | 0x80);
-    utf8Str[0] = static_cast<char>(((unicodeChar >> 12) & 0x0f) | 0xe0);
-    return 3;
-}
-
-}
+/**
+ * get a human friend description of error code.
+ * @param error error code.
+ * @return an error description.
+ */
+const char *GetErrorInfo(int error) noexcept;
 
 
 enum class JsonType : int
@@ -94,7 +75,7 @@ enum class JsonType : int
 class JToken
 {
 public:
-    virtual JsonType GetType() const = 0;
+    virtual JsonType GetType() const noexcept = 0;
 
     virtual ~JToken() = default;
 };
@@ -106,10 +87,12 @@ public:
  */
 class JObject : public JToken
 {
+    using Container = std::map<std::string, std::unique_ptr<JToken>>;
+
 public:
     JObject() = default;
 
-    JsonType GetType() const override { return TYPE; }
+    JsonType GetType() const noexcept override { return TYPE; }
 
     size_t Size() const
     {
@@ -139,6 +122,27 @@ public:
         return r == children.end() ? nullptr : r->second.get();
     }
 
+    // iterator
+    auto begin() noexcept -> Container::iterator
+    {
+        return children.begin();
+    }
+
+    auto begin() const noexcept -> Container::const_iterator
+    {
+        return children.begin();
+    }
+
+    auto end() noexcept -> Container::iterator
+    {
+        return children.end();
+    }
+
+    auto end() const noexcept -> Container::const_iterator
+    {
+        return children.end();
+    }
+
     bool Put(const std::string &property, std::unique_ptr<JToken> &&value)
     {
         return children.emplace(property, std::move(value)).second;
@@ -150,7 +154,7 @@ public:
     }
 
 private:
-    std::map<std::string, std::unique_ptr<JToken>> children;
+    Container children;
 
 public:
     static constexpr JsonType TYPE = JsonType::Object;
@@ -162,10 +166,12 @@ public:
  */
 class JArray : public JToken
 {
+    using Container = std::vector<std::unique_ptr<JToken>>;
+
 public:
     JArray() = default;
 
-    JsonType GetType() const override { return TYPE; }
+    JsonType GetType() const noexcept override { return TYPE; }
 
     void Reserve(size_t capacity)
     {
@@ -198,13 +204,34 @@ public:
         return index >= Size() ? nullptr : children[index].get();
     }
 
+    // iterator
+    auto begin() noexcept -> Container::iterator
+    {
+        return children.begin();
+    }
+
+    auto begin() const noexcept -> Container::const_iterator
+    {
+        return children.begin();
+    }
+
+    auto end() noexcept -> Container::iterator
+    {
+        return children.end();
+    }
+
+    auto end() const noexcept -> Container::const_iterator
+    {
+        return children.end();
+    }
+
     void Add(std::unique_ptr<JToken> &&element)
     {
         children.emplace_back(std::move(element));
     }
 
 private:
-    std::vector<std::unique_ptr<JToken>> children;
+    Container children;
 
 public:
     static constexpr JsonType TYPE = JsonType::Array;
@@ -214,16 +241,16 @@ public:
 /**
  * json string value. A string of Unicode code points, from the JSON "string" production.
  */
-class JStringValue : JToken
+class JStringValue : public JToken
 {
 public:
     JStringValue() = default;
 
     explicit JStringValue(const std::string &v) : value(v) { }
 
-    explicit JStringValue(std::string &&v) : value(std::move(v)) { }
+    explicit JStringValue(std::string &&v) noexcept : value(std::move(v)) { }
 
-    JsonType GetType() const override { return TYPE; }
+    JsonType GetType() const noexcept override { return TYPE; }
 
     // use to access value
     std::string &Value()
@@ -257,7 +284,7 @@ public:
 
     explicit JNumberValue(double v) : isFloat(true), value{.floatValue = v} { }
 
-    JsonType GetType() const override { return TYPE; }
+    JsonType GetType() const noexcept override { return TYPE; }
 
     // access
     explicit operator int64_t() const
@@ -306,11 +333,11 @@ public:
 class JBoolValue : public JToken
 {
 public:
-    explicit JBoolValue(bool v = false) : value(v) { }
+    explicit JBoolValue(bool v = false) noexcept : value(v) { }
 
-    JsonType GetType() const override { return TYPE; }
+    JsonType GetType() const noexcept override { return TYPE; }
 
-    explicit operator bool() const
+    explicit operator bool() const noexcept
     {
         return value;
     }
@@ -329,7 +356,7 @@ public:
 class JNullValue : public JToken
 {
 public:
-    JsonType GetType() const override { return TYPE; }
+    JsonType GetType() const noexcept override { return TYPE; }
 
 public:
     static constexpr JsonType TYPE = JsonType::Null;
@@ -337,4 +364,4 @@ public:
 
 }
 
-#endif //CPPPARSER_JTOKEN_H
+#endif //JSONCPP_JSON_H
