@@ -336,14 +336,14 @@ static std::unique_ptr<JToken> ReadToken(const char **str, int *error);
 static std::unique_ptr<JToken> ReadObject(const char **objStr, int *error)
 {
     auto str = SkipWhiteSpace(*objStr, 1);
-    std::unique_ptr<JToken> obj(new JObject());
+    auto *ptr = new JObject();
+    std::unique_ptr<JToken> obj(ptr);
     // empty object
     if (*str == '}') {
         *objStr = str + 1;
         return obj;
     }
 
-    JObject *ptr = static_cast<JObject *>(obj.get());
     while (true) {
         if (!AssertEqual(*str, '\"')) {
             *error = OBJECT_SYNTAX_ERROR;
@@ -473,11 +473,6 @@ std::unique_ptr<JToken> ReadToken(const char **str, int *error)
     }
 
     return ReadValue(str, error);
-}
-
-std::unique_ptr<JToken> json::Parse(const std::string &json, int *error)
-{
-    return Parse(json.c_str(), error);
 }
 
 std::unique_ptr<JToken> json::Parse(const char *json, int *error)

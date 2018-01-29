@@ -22,15 +22,6 @@ enum class JsonFormatOption
 };
 
 /**
- * parse json string to {@code JToken}.
- * @param json json format string.
- * @param error out param, a code to identify parse error, 0 means no error. {@code nullptr} can be passed.
- * @return if no error occurs, return a {@code JToken} pointer, use {@code JToken::GetType} to determine
- * the actual json type. return a default empty {@code std::unique_ptr} object if any errors occur.
- */
-std::unique_ptr<JToken> Parse(const std::string &json, int *error);
-
-/**
  * parse c-style json string to {@code JToken}.
  * @param json c-style json format string.
  * @param error out param, a code to identify parse error, 0 means no error. {@code nullptr} can be passed.
@@ -38,6 +29,18 @@ std::unique_ptr<JToken> Parse(const std::string &json, int *error);
  * the actual json type. return a default empty {@code std::unique_ptr} object if any errors occur.
  */
 std::unique_ptr<JToken> Parse(const char *json, int *error);
+
+/**
+ * parse json string to {@code JToken}.
+ * @param json json format string.
+ * @param error out param, a code to identify parse error, 0 means no error. {@code nullptr} can be passed.
+ * @return if no error occurs, return a {@code JToken} pointer, use {@code JToken::GetType} to determine
+ * the actual json type. return a default empty {@code std::unique_ptr} object if any errors occur.
+ */
+std::unique_ptr<JToken> Parse(const std::string &json, int *error)
+{
+    return Parse(json.c_str(), error);
+}
 
 /**
  * format json instance.
@@ -55,6 +58,13 @@ std::string ToString(const JToken &token, JsonFormatOption option = JsonFormatOp
  * @return an error description.
  */
 const char *GetErrorInfo(int error) noexcept;
+
+/**
+ * copy construct a json token object.
+ * @param token source object.
+ * @return new object copied from source.
+ */
+std::unique_ptr<JToken> clone(const JToken &token);
 
 
 enum class JsonType : int
@@ -171,6 +181,16 @@ class JArray : public JToken
 public:
     JArray() = default;
 
+    explicit JArray(const std::vector<const JToken *> &tokens) : children()
+    {
+        children.reserve(tokens.size());
+        for (auto token : tokens) {
+            if (token) {
+                children.emplace_back(clone(*token));
+            }
+        }
+    }
+
     JsonType GetType() const noexcept override { return TYPE; }
 
     void Reserve(size_t capacity)
@@ -186,12 +206,12 @@ public:
     // use to access
     JToken *operator[](size_t index)
     {
-        return GetValue(index);
+        return children[index].get();
     }
 
     const JToken *operator[](size_t index) const
     {
-        return GetValue(index);
+        return children[index].get();
     }
 
     JToken *GetValue(size_t index)
