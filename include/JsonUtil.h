@@ -11,98 +11,274 @@
 #include <queue>
 #include <functional>
 
-#include "JValueType.h"
-#include "JsonException.h"
-
-#define MAKE_VALUE_TYPE_STR(infoStr) Invalid character when parse json##infoStr
-
-#define MAKE_STR(str) #str
-
-#define MAKE_VALUE_TYPE_INFO(type, infoStr) \
-    template<> struct Info<type> { static const char*GetInfo() { return MAKE_STR(MAKE_VALUE_TYPE_STR(infoStr)); } }
 
 namespace JsonCpp
 {
-    template<JValueType type>
-    struct Info
+
+
+struct ActionNode;
+using NodePtrList = std::vector<std::shared_ptr<ActionNode>>;
+
+/**
+ * 解析JPath字符串.
+ * @param 待解析的字符串
+ * @return 解析结果,如果JPath语法错误,返回空列表;否则返回顺序的节点列表,其中第一项为$符号.
+ */
+NodePtrList ParseJPath(const char *) const;
+
+friend bool ReadNodeByDotRefer(const char **s, NodePtrList &list, bool isRecursive = false)
+{
+    auto str = *s;
+    if (*str == '*') {
+        ActionType t = isRecursive ? ActionType::ReWildcard : ActionType::Wildcard;
+        list.push_back(std::shared_ptr<ActionNode>(new ActionNode(t)));
+        *s = str + 1;
+    } else {
+        auto tmp = str;
+        while (*tmp && *tmp != '.' && *tmp != '[' && *tmp != ' ') {
+            ++tmp;
+        }
+        if (tmp == str) {
+            return false;
+        }
+
+        ActionType t = isRecursive ? ActionType::ReValueWithKey : ActionType::ValueWithKey;
+        auto node = std::shared_ptr<ActionNode>(new ActionNode(t));
+        node->actionData.key = new std::string(str, tmp - str);
+        list.push_back(std::move(node));
+        *s = tmp;
+    }
+
+    return true;
+}
+
+enum ActionType
+{
+    RootItem = 0x00,
+    ValueWithKey = 0x01,
+    ArrayBySubscript = 0x02,
+    Wildcard = 0x04,
+    ReValueWithKey = 0x08,
+    ReWildcard = 0x10
+};
+
+struct SliceData
+{
+    int start;
+    int end;
+    unsigned int step;
+
+    SliceData(int start = 0, int end = std::numeric_limits<int>::max(), unsigned step = 1) :
+            start(start),
+            end(end),
+            step(step) { }
+};
+
+union FilterData
+{
+    std::vector<int> *indices;
+    SliceData *slice;
+    std::deque<Expr::ExprNode> *script;
+    Expr::BoolExpression *filter;
+};
+
+struct SubscriptData
+{
+    enum FilterType
     {
-        static const char *GetInfo() { return "Error when parse json value"; }
+        ArrayIndices,
+        ArraySlice,
+        Script,
+        Filter,
+        All
     };
 
-    MAKE_VALUE_TYPE_INFO(JValueType::Object, _object);
+    FilterType filterType;
+    FilterData filterData;
 
-    MAKE_VALUE_TYPE_INFO(JValueType::Array, _array);
+    ~SubscriptData()
+    {
+        switch (filterType) {
+            case ArrayIndices:
+                if (nullptr != filterData.indices) {
+                    delete filterData.indices;
+                    filterData.indices = nullptr;
+                }
+                return;
+            case ArraySlice:
+                if (nullptr != filterData.slice) {
+                    delete filterData.slice;
+                    filterData.slice = nullptr;
+                }
+                return;
+            case Script:
+                if (nullptr != filterData.script) {
+                    delete filterData.script;
+                    filterData.script = nullptr;
+                }
+                return;
+            case Filter:
+                if (nullptr != filterData.filter) {
+                    delete filterData.filter;
+                    filterData.filter = nullptr;
+                }
+                return;
+            default:
+                return;
+        }
+    }
+};
 
+union ActionData
+{
+    std::string *key;
+    SubscriptData *subData;
+};
+
+struct ActionNode
+{
+    ActionType actionType;
+    ActionData actionData;
+
+    ActionNode(ActionType t = ActionType::Wildcard) : actionType(t)
+    {
+        actionData.key = nullptr;
+    }
+
+    ActionNode(ActionNode &&node) : actionType(node.actionType)
+    {
+        actionData.key = node.actionData.key;
+        node.actionType = ActionType::Wildcard;
+        node.actionData.key = nullptr;
+    }
+
+    ~ActionNode()
+    {
+        if (actionType == ActionType::ValueWithKey || actionType == ActionType::ReValueWithKey) {
+            if (nullptr != actionData.key) {
+                delete actionData.key;
+                actionData.key = nullptr;
+            }
+        } else if (actionType == ActionType::ArrayBySubscript) {
+            if (nullptr != actionData.subData) {
+                delete actionData.subData;
+                actionData.subData = nullptr;
+            }
+        }
+    }
+};
+
+
+namespace Expr
+{
+
+enum ExprType
+{
+    Numeric,
+    Operator,
+    Boolean,
+    Property
+};
+
+union ExprData
+{
+    char op;
+    bool bv;
+    double num;
+    std::string *prop;
+};
+
+struct ExprNode
+{
+    ExprType type;
+    ExprData data;
+
+    ExprNode(ExprType t = ExprType::Numeric) : type(t) { data.prop = nullptr; }
+
+    ExprNode(ExprNode &&node) : type(node.type)
+    {
+        switch (node.type)
+        {
+            case Numeric:
+                data.num = node.data.num;
+                node.data.num = 0.0;
+                break;
+
+            case Operator:
+                data.op = node.data.op;
+                node.data.op = '\0';
+                break;
+
+            case Boolean:
+                data.bv = node.data.bv;
+                node.data.bv = false;
+                break;
+
+            case Property:
+                data.prop = node.data.prop;
+                node.data.prop = nullptr;
+                break;
+        }
+
+        node.type = Numeric;
+    }
+
+    ~ExprNode()
+    {
+        if (type == ExprType::Property && data.prop)
+        {
+            delete data.prop;
+            data.prop = nullptr;
+        }
+    }
+};
+
+enum BoolOpType
+{
+    Greater,
+    Less,
+    GreaterEqual,
+    LessEqual,
+    Equal,
+    NotEqual,
+    Exist
+};
+
+struct BoolExpression
+{
+    BoolOpType type;
+    std::deque<ExprNode> leftRePolishExpr;
+    std::deque<ExprNode> *rightRePolishExpr;
+
+    BoolExpression(BoolOpType t = BoolOpType::Exist, bool hasRight = false) : type(t)
+    {
+        if (hasRight)
+        {
+            rightRePolishExpr = new std::deque<ExprNode>();
+        }
+    }
+
+    BoolExpression(BoolExpression &&expr) :
+            type(expr.type), leftRePolishExpr(std::move(expr.leftRePolishExpr)),
+            rightRePolishExpr(expr.rightRePolishExpr)
+    {
+        expr.type = BoolOpType::Exist;
+        rightRePolishExpr = nullptr;
+    }
+
+    ~BoolExpression()
+    {
+        if (rightRePolishExpr)
+        {
+            delete rightRePolishExpr;
+            rightRePolishExpr = nullptr;
+        }
+    }
+};
+}
     struct JsonUtil
     {
         using NodeDeque = std::deque<Expr::ExprNode>;
-
-        static const char *SkipWhiteSpace(const char *str)
-        {
-            while (std::isspace(*str))
-            {
-                ++str;
-            }
-            return str;
-        }
-
-        static const char *SkipWhiteSpace(const char *str, unsigned int start)
-        {
-            str += start;
-
-            return SkipWhiteSpace(str);
-        }
-
-        template<JValueType type = JValueType::Null>
-        static void AssertEqual(char a, char b)
-        {
-            if (a != b)
-            {
-                throw JsonException(Info<type>::GetInfo());
-            }
-        }
-
-        static void Assert(bool b)
-        {
-            if (!b)
-            {
-                throw JsonException("Incorrect json string: bool");
-            }
-        }
-
-        static void AssertEndStr(const char *str)
-        {
-            str = SkipWhiteSpace(str);
-            if (*str != '\0')
-            {
-                throw JsonException("Incorrect json string: end");
-            }
-        }
-
-
-        static int Unicode2ToUtf8(unsigned short uChar, char *utf8Str)
-        {
-            if (uChar <= 0x007f)
-            {
-                // * U-00000000 - U-0000007F:  0xxxxxxx
-                *utf8Str = static_cast<char>(uChar);
-                return 1;
-            }
-
-            if (uChar <= 0x07ff)
-            {
-                // * U-00000080 - U-000007FF:  110xxxxx 10xxxxxx
-                utf8Str[1] = static_cast<char>((uChar & 0x3f) | 0x80);
-                utf8Str[0] = static_cast<char>(((uChar >> 6) & 0x1f) | 0xc0);
-                return 2;
-            }
-
-            // * U-00000800 - U-0000FFFF:  1110xxxx 10xxxxxx 10xxxxxx
-            utf8Str[2] = static_cast<char>((uChar & 0x3f) | 0x80);
-            utf8Str[1] = static_cast<char>(((uChar >> 6) & 0x3f) | 0x80);
-            utf8Str[0] = static_cast<char>(((uChar >> 12) & 0x0f) | 0xe0);
-            return 3;
-        }
 
         static bool GetRePolishExpression(const char *str, NodeDeque &nodes)
         {

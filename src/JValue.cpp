@@ -2,60 +2,6 @@
 // Created by qife on 16/1/13.
 //
 
-#include "JValue.h"
-
-using namespace JsonCpp;
-
-const char *JValue::Parse(const char *str)
-{
-    str = JsonUtil::SkipWhiteSpace(str);
-    if (*str == '\"')
-    {
-        // Parse string value
-        ++str;
-        autoMem.value.pStr = new std::string(JsonReader::ReadString(&str));
-        autoMem.type = JValueType::String;
-        return str;
-    }
-    if (std::strncmp(str, "true", 4) == 0)
-    {
-        autoMem.type = JValueType::Boolean;
-        autoMem.value.bVal = true;
-        return str + 4;
-    }
-    if (std::strncmp(str, "false", 5) == 0)
-    {
-        autoMem.type = JValueType::Boolean;
-        autoMem.value.bVal = false;
-        return str + 5;
-    }
-    if (std::strncmp(str, "null", 4) == 0)
-    {
-        autoMem.type = JValueType::Null;
-        return str + 4;
-    }
-
-    // Parse number value
-    char *end;
-    autoMem.value.num = std::strtod(str, &end);
-    JsonUtil::Assert(end != str);
-    autoMem.type = JValueType::Number;
-    return end;
-}
-
-const JToken *JValue::SelectTokenCore(const NodePtrList &nodes, unsigned int cur) const
-{
-    return nodes.size() == cur ? this : nullptr;
-}
-
-void JValue::SelectTokensCore(const NodePtrList &nodes, unsigned int cur, std::list<const JToken *> &tokens) const
-{
-    if (nodes.size() == cur)
-    {
-        tokens.push_back(this);
-    }
-}
-
 bool JValue::GetExprResult(Expr::BoolExpression &expr) const
 {
     if (expr.type == Expr::BoolOpType::Exist && expr.leftRePolishExpr.size() == 1)
@@ -121,110 +67,337 @@ bool JValue::GetExprResult(Expr::BoolExpression &expr) const
     return false;
 }
 
-JValueType JValue::GetType() const
+JToken::NodePtrList JToken::ParseJPath(const char *str) const
 {
-    return autoMem.type;
-}
-
-JValue::operator bool() const
-{
-    if (autoMem.type == JValueType::Boolean)
+    str = JsonUtil::SkipWhiteSpace(str);
+    NodePtrList list;
+    if (*str == '$')
     {
-        return autoMem.value.bVal;
+        list.push_back(std::shared_ptr<ActionNode>(new ActionNode(ActionType::RootItem)));
+        // list.push_back(std::make_shared<ActionNode>(ActionType::RootItem)); // Clion bug
+        ++str;
+    }
+    else
+    {
+        list.push_back(std::shared_ptr<ActionNode>(new ActionNode(ActionType::RootItem)));
+        if (!ReadNodeByDotRefer(&str, list))
+        {
+            goto error;
+        }
     }
 
-    throw JsonException("This json value is not a bool value");
-}
-
-JValue::operator double() const
-{
-    if (autoMem.type == JValueType::Number)
+    while (*str)
     {
-        return autoMem.value.num;
-    }
-
-    throw JsonException("This json value is not a number value");
-}
-
-JValue::operator std::string() const
-{
-    if (autoMem.type == JValueType::String)
-    {
-        return *autoMem.value.pStr;
-    }
-
-    throw JsonException("This json value is not a string value");
-}
-
-const JToken &JValue::operator[](const std::string &) const
-{
-    throw JsonException("Access not support: subscript with key");
-}
-
-const JToken &JValue::operator[](unsigned long) const
-{
-    throw JsonException("Access not support: subscript with index");
-}
-
-const JToken &JValue::GetValue(const std::string &) const
-{
-    throw JsonException("Access not support: getValue with key");
-}
-
-const JToken &JValue::GetValue(unsigned long) const
-{
-    throw JsonException("Access not support: getValue with index");
-}
-
-const std::string &JValue::ToString() const
-{
-    if (nullptr == valString)
-    {
-        valString = new std::string();
-        if (JValueType::String == autoMem.type)
+        switch (*str)
         {
-            valString->push_back('\"');
-            valString->append(*autoMem.value.pStr);
-            valString->push_back('\"');
-        }
-        else if (JValueType::Null == autoMem.type)
-        {
-            valString->append("null");
-        }
-        else if (JValueType::Boolean == autoMem.type)
-        {
-            valString->append(autoMem.value.bVal ? "true" : "false");
-        }
-        else if (JValueType::Number == autoMem.type)
-        {
-            auto str = std::to_string(autoMem.value.num);
-            auto len = str.size() - 1;
-            while (str[len] == '0')
+            case '.':
+                if (*(str + 1) == '.')
+                {
+                    str = JsonUtil::SkipWhiteSpace(str, 2);
+                    if (!ReadNodeByDotRefer(&str, list, true))
+                    {
+                        goto error;
+                    }
+                    continue;
+                }
+                else
+                {
+                    str = JsonUtil::SkipWhiteSpace(str, 1);
+                    if (!ReadNodeByDotRefer(&str, list))
+                    {
+                        goto error;
+                    }
+                    continue;
+                }
+
+            case '[':
             {
-                str.pop_back();
-                --len;
+                str = JsonUtil::SkipWhiteSpace(str, 1);
+                auto node = std::shared_ptr<ActionNode>(new ActionNode(ActionType::ArrayBySubscript));
+                node->actionData.subData = new SubscriptData();
+                auto data = node->actionData.subData;
+                if (*str == '*')
+                {
+                    data->filterType = SubscriptData::All;
+                }
+                else if (*str == '?')
+                {
+                    str = JsonUtil::SkipWhiteSpace(str, 1);
+                    if (*str != '(')
+                    {
+                        goto error;
+                    }
+                    str = JsonUtil::SkipWhiteSpace(str, 1);
+
+                    Expr::BoolOpType opType = Expr::Exist;
+                    const char *start = str;
+                    const char *last = nullptr;
+                    const char *paren = nullptr;
+                    const char *op = nullptr;
+                    while (*str)
+                    {
+                        switch (*str)
+                        {
+                            case '>':
+                            {
+                                if (opType != Expr::Exist)
+                                {
+                                    goto error;
+                                }
+                                op = str;
+                                if (*++str == '=')
+                                {
+                                    opType = Expr::GreaterEqual;
+                                    ++str;
+                                }
+                                else
+                                {
+                                    opType = Expr::Greater;
+                                }
+                                continue;
+                            }
+
+                            case '<':
+                            {
+                                if (opType != Expr::Exist)
+                                {
+                                    goto error;
+                                }
+                                op = str;
+                                if (*++str == '=')
+                                {
+                                    opType = Expr::LessEqual;
+                                    ++str;
+                                }
+                                else
+                                {
+                                    opType = Expr::Less;
+                                }
+                                continue;
+                            }
+
+                            case '=':
+                            case '!':
+                            {
+                                if (opType != Expr::Exist)
+                                {
+                                    goto error;
+                                }
+                                op = str;
+                                if (*(str + 1) != '=')
+                                {
+                                    goto error;
+                                }
+                                opType = *str == '=' ? Expr::Equal : Expr::NotEqual;
+                                str += 2;
+                                continue;
+                            }
+
+                            case ')':
+                                paren = str;
+                                ++str;
+                                continue;
+
+                            case ']':
+                                break;
+
+                            case ' ':
+                                ++str;
+                                continue;
+
+                            default:
+                                last = str;
+                                ++str;
+                                continue;
+                        }
+
+                        break;
+                    }
+                    if (last >= paren || op > paren || op > last || !last || !*str)
+                    {
+                        goto error;
+                    }
+
+                    data->filterType = SubscriptData::Filter;
+                    if (op)
+                    {
+                        std::string leftExpr(start, op);
+                        data->filterData.filter = new Expr::BoolExpression(opType, true);
+                        if (!JsonUtil::GetRePolishExpression(leftExpr.c_str(),
+                                                             data->filterData.filter->leftRePolishExpr))
+                        {
+                            goto error;
+                        }
+
+                        unsigned int i = opType == Expr::Less || opType == Expr::Greater ? 1 : 2;
+                        std::string rightExpr(op + i, last + 1);
+                        if (!JsonUtil::GetRePolishExpression(rightExpr.c_str(),
+                                                             *data->filterData.filter->rightRePolishExpr))
+                        {
+                            goto error;
+                        }
+                    }
+                    else
+                    {
+                        std::string expr(start, last + 1);
+                        data->filterData.filter = new Expr::BoolExpression(opType);
+                        if (!JsonUtil::GetRePolishExpression(expr.c_str(), data->filterData.filter->leftRePolishExpr))
+                        {
+                            goto error;
+                        }
+                    }
+                }
+                else if (*str == '(')
+                {
+                    str = JsonUtil::SkipWhiteSpace(str, 1);
+                    const char *start = str;
+                    const char *end = nullptr;
+                    const char *paren = nullptr;
+
+                    while (*str)
+                    {
+                        switch (*str)
+                        {
+                            case '<':
+                            case '>':
+                            case '=':
+                            case '!':
+                                goto error;
+
+                            case ')':
+                                paren = str;
+                                continue;
+
+                            case ' ':
+                                continue;
+
+                            case ']':
+                                break;
+
+                            default:
+                                end = str;
+                        }
+
+                        break;
+                    }
+                    if (end >= paren || !end || !*str)
+                    {
+                        goto error;
+                    }
+
+                    data->filterType = SubscriptData::Script;
+                    data->filterData.script = new std::deque<Expr::ExprNode>();
+                    std::string expr(start, end + 1);
+                    if (!JsonUtil::GetRePolishExpression(expr.c_str(), *data->filterData.script))
+                    {
+                        goto error;
+                    }
+                }
+                else
+                {
+                    char *numEnd = nullptr;
+                    auto num = (int)std::strtol(str, &numEnd, 0);
+                    if (numEnd)
+                    {
+                        str = JsonUtil::SkipWhiteSpace(numEnd);
+
+                        if (*str == ',' || *str == ']')
+                        {
+                            data->filterType = SubscriptData::ArrayIndices;
+                            data->filterData.indices = new std::vector<int>();
+                            data->filterData.indices->push_back(num);
+
+                            if (*str == ',')
+                            {
+                                do
+                                {
+                                    numEnd = nullptr;
+                                    num = (int)std::strtol(str + 1, &numEnd, 0);
+                                    if (!numEnd)
+                                    {
+                                        goto error;
+                                    }
+                                    data->filterData.indices->push_back(num);
+                                    str = JsonUtil::SkipWhiteSpace(numEnd);
+                                } while (*str == ',');
+
+                                if (*str != ']')
+                                {
+                                    goto error;
+                                }
+                            }
+
+                            ++str;
+                            list.push_back(std::move(node));
+                            continue;
+                        }
+                    }
+
+                    if (*str == ':')
+                    {
+                        data->filterType = SubscriptData::ArraySlice;
+                        data->filterData.slice = new SliceData(num);
+
+                        str = JsonUtil::SkipWhiteSpace(str, 1);
+                        if (*str == ':')
+                        {
+                            char *stepEnd = nullptr;
+                            str = JsonUtil::SkipWhiteSpace(str, 1);
+                            auto step = std::strtoul(str, &stepEnd, 0);
+                            if (stepEnd)
+                            {
+                                data->filterData.slice->step = (unsigned int)step;
+                                str = JsonUtil::SkipWhiteSpace(stepEnd);
+                            }
+                        }
+                        else
+                        {
+                            char *strEnd = nullptr;
+                            auto end = std::strtol(str, &strEnd, 0);
+                            if (strEnd)
+                            {
+                                data->filterData.slice->end = (int)end;
+                                str = JsonUtil::SkipWhiteSpace(strEnd);
+                                if (*str == ':')
+                                {
+                                    strEnd = nullptr;
+                                    auto step = std::strtoul(str, &strEnd, 0);
+                                    if (strEnd)
+                                    {
+                                        data->filterData.slice->step = (unsigned int)step;
+                                        str = JsonUtil::SkipWhiteSpace(strEnd);
+                                    }
+                                }
+                            }
+                        }
+
+                        if (*str != ']')
+                        {
+                            goto error;
+                        }
+                    }
+                    else
+                    {
+                        goto error;
+                    }
+                }
+
+                ++str;
+                list.push_back(std::move(node));
+                continue;
             }
-            if (str[len] == '.')
-            {
-                str.pop_back();
-            }
-            valString->append(str);
+
+            case ' ':
+                continue;
+
+            default:
+                goto error;
         }
     }
 
-    return *valString;
-}
+    return list;
 
-const std::string &JValue::ToFormatString() const
-{
-    return ToString();
-}
-
-void JValue::Reclaim() const
-{
-    if (valString)
-    {
-        delete valString;
-        valString = nullptr;
-    }
+    error:
+    list.clear();
+    return list;
 }
