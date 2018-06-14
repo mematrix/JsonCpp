@@ -4,7 +4,7 @@
 
 #include <cstdint>
 #include <cmath>
-#include "JSONUtils.h"
+#include "JSONUtils.hpp"
 
 int unicode_to_utf8(unsigned short unicode_char, char *utf8_str) noexcept
 {
