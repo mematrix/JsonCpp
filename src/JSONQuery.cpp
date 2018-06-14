@@ -2,308 +2,538 @@
 // Created by Charles on 2018/1/25.
 //
 
-#include <limits>
 #include "JSONQuery.hpp"
+#include "JSONQueryFilter.hpp"
+#include "JSONUtils.hpp"
 
 using namespace json;
 
 namespace {
 
-class filter_base
-{
-    std::unique_ptr<filter_base> next;
-
-protected:
-    /**
-     * only check if next is exist. if exist, call it.
-     */
-    void filter_next(JToken &token, std::vector<JToken *> &result, bool single) noexcept
-    {
-        if (next) {
-            next->filter(token, result, single);
-        }
-    }
-
-    /**
-     * call next filter if it is not null, otherwise end filter and add result.
-     */
-    void filter_next_or_end(JToken &token, std::vector<JToken *> &result, bool single) noexcept
-    {
-        if (next) {
-            next->filter(token, result, single);
-        } else {
-            result.push_back(&token);
-        }
-    }
-
-    /**
-     * do filter work.
-     */
-    virtual void do_filter(JToken &token, std::vector<JToken *> &result, bool single) noexcept = 0;
-
-public:
-    filter_base() = default;
-
-    void set_next_filter(std::unique_ptr<filter_base> &&filter) noexcept
-    {
-        next = std::move(filter);
-    }
-
-    void filter(JToken &token, std::vector<JToken *> &result, bool single) noexcept
-    {
-        do_filter(token, result, single);
-    }
-
-    virtual ~filter_base() = default;
-};
-
 /**
- * recursive descent filter. run filter on self and descendant node. syntax: .. (e.g. ..prop_name or ..[...])
+ * sentry filter class, only used to construct the filter chain.
  */
-class recursive_filter : public filter_base
+class sentry_filter final : public filter_base
 {
 protected:
-    void do_filter(JToken &token, std::vector<JToken *> &result, bool single) noexcept override
+    void do_filter(json_token &token, std::vector<json_token *> &result, bool single) noexcept override
     {
         filter_next(token, result, single);
-        if (single && !result.empty()) {
-            return;
-        }
-
-        if (token.GetType() == JsonType::Object) {
-            auto &obj = static_cast<JObject &>(token);  // NOLINT
-            for (auto &property : obj) {
-                do_filter(*property.second, result, single);
-                if (single && !result.empty()) {
-                    return;
-                }
-            }
-        } else if (token.GetType() == JsonType::Array) {
-            auto &array = static_cast<JArray &>(token);   // NOLINT
-            for (auto &element : array) {
-                do_filter(*element, result, single);
-                if (single && !result.empty()) {
-                    return;
-                }
-            }
-        }
     }
 };
 
 /**
- * filter object. syntax: .property_name in dot-notation or ['property_name'] in bracket-notation.
+ * parser state when parsing json-path string. a state starting with dot_* means parsing dot-notation
+ * json-path expression, while a state starting with bracket_* means parsing bracket-notation json-path
+ * expression, and other states mean notation is not yet determined.
  */
-class object_filter : public filter_base
+enum class parser_state
 {
-    const std::string property_name;
-
-public:
-    explicit object_filter(std::string &&name) noexcept : property_name(std::move(name)) { }
-
-protected:
-    void do_filter(JToken &token, std::vector<JToken *> &result, bool single) noexcept override
-    {
-        if (token.GetType() != JsonType::Object) {
-            return;
-        }
-
-        auto &obj = static_cast<JObject &>(token); // NOLINT
-        auto value = obj[property_name];
-        if (value) {
-            filter_next_or_end(*value, result, single);
-        }
-    }
+    start,
+    start_dollar,
+    one_dot,
+    two_dot,
+    start_bracket,
+    check_end_bracket,
+    end_bracket,
+    dot_parse_object,
+    dot_continue,
+    dot_one_dot,
+    dot_two_dot,
+    dot_start_bracket,
+    dot_check_end_bracket,
+    dot_wildcard,
+    bracket_parse_object,
+    bracket_start_bracket,
+    bracket_check_end_bracket,
+    bracket_end_bracket,
+    bracket_wildcard
 };
 
-/**
- * filter object with property set. syntax: ['prop_name1','prop_name2',...] in bracket-notation or .* in dot-notation.
- */
-class object_multi_filter : public filter_base
+}
+
+inline static bool is_alnum_or_line(char c)
 {
-    const std::vector<std::string> property_set;  // if empty, means wildcard(*)
+    return std::isalnum(c) || c == '_' || c == '-';
+}
 
-public:
-    object_multi_filter() = default;
+/**
+ * parse object key or key list in bracket-notation. when parse success, **path == ']'.
+ */
+static std::unique_ptr<filter_base> parse_bracket_object_key(const char **path)
+{
+    const char *start = *path;
+    int code = NO_ERROR;
+    std::list<std::string> key_list;
 
-    explicit object_multi_filter(std::vector<std::string> &&prop_set) noexcept : property_set(std::move(prop_set)) { }
-
-protected:
-    void do_filter(JToken &token, std::vector<JToken *> &result, bool single) noexcept override
-    {
-        if (token.GetType() != JsonType::Object) {
-            return;
+    while (true) {
+        if (*start != '\'') {
+            return nullptr;
         }
 
-        auto &obj = static_cast<JObject &>(token); // NOLINT
-        if (property_set.empty()) {
-            for (auto &property : obj) {
-                filter_next_or_end(*property.second, result, single);
-                if (single && !result.empty()) {
-                    return;
-                }
+        ++start;
+        auto key_str = read_json_string(&start, &code);
+        if (code != NO_ERROR) {
+            return nullptr;
+        }
+
+        if (!key_str.empty()) {
+            key_list.push_back(std::move(key_str));
+        }
+
+        start = skip_whitespace(start);
+        if (*start == ']') {
+            break;
+        }
+        if (*start != ',') {
+            return nullptr;
+        }
+        start = skip_whitespace(start, 1);
+    }
+
+    if (key_list.empty()) {
+        return nullptr;
+    }
+
+    return std::unique_ptr<filter_base>(new object_multi_filter(std::move(key_list)));
+}
+
+/**
+ * parse object key access syntax in dot-notation.
+ */
+static std::unique_ptr<filter_base> parse_dot_object_key(const char **path)
+{
+    const char *start = *path;
+    const char *end = start;
+    while (is_alnum_or_line(*end)) {
+        ++end;
+    }
+
+    if (end == start) {
+        return nullptr;
+    }
+    *path = end;
+
+    return std::unique_ptr<filter_base>(new object_filter(std::string(start, end - start)));
+}
+
+/**
+ * parse array index syntax or script syntax in any notation. when parse success, **path == ']'.
+ */
+static std::unique_ptr<filter_base> parse_array_index_or_script(const char **path)
+{
+    const char *start = *path;
+
+    if (*start == '(') {
+        auto expr_script = parse_expr_script(&start);
+        *path = skip_whitespace(start);
+        return expr_script;
+    }
+    if (*start == '?') {
+        auto filter_script = parse_filter_script(&start);
+        *path = skip_whitespace(start);
+        return filter_script;
+    }
+
+    // parse number index syntax
+    uint64_t first_num = 0;
+    int64_t slice_start = 0;
+    int64_t slice_end = std::numeric_limits<int64_t>::max();
+    uint64_t slice_step = 1;
+    bool is_slice_syntax = false;
+    char *end;
+
+    // if first char equals ':', then treat the following string as the slice operator description.
+    // because subscript and subscript list are positive number, so if first char equals '-', treat
+    // as slice operator too.
+    if (*start == '-') {
+        is_slice_syntax = true;
+        slice_start = std::strtoll(start, &end, 10);
+        if (end == start || errno == ERANGE) {
+            return nullptr;
+        }
+
+        start = skip_whitespace(end);
+        if (*start != ':') {
+            return nullptr;
+        }
+        ++start;
+    } else if (*start == ':') {
+        is_slice_syntax = true;
+        ++start;
+    } else {
+        first_num = std::strtoull(start, &end, 10);
+        if (end == start || errno == ERANGE) {
+            return nullptr;
+        }
+
+        start = skip_whitespace(end);
+        if (*start == ']') {
+            *path = start;
+            return std::unique_ptr<filter_base>(new array_filter(first_num));
+        }
+        if (*start == ':') {
+            is_slice_syntax = true;
+            slice_start = static_cast<int64_t>(first_num);
+            if (slice_start < 0) {
+                return nullptr;     // overflow.
             }
+            ++start;
+        } else if (*start == ',') {
+            ++start;
         } else {
-            for (const auto &prop_name : property_set) {
-                auto value = obj[prop_name];
-                if (value) {
-                    filter_next_or_end(*value, result, single);
-                    if (single && !result.empty()) {
-                        return;
+            return nullptr;
+        }
+    }
+
+    start = skip_whitespace(start);
+    if (is_slice_syntax) {          /* [num: or [: */
+        do {
+            if (*start == ']') {        /* [num:] or [:] */
+                break;
+            }
+
+            if (*start != ':') {        /* [num:num or [:num */
+                slice_end = std::strtoll(start, &end, 10);
+                if (end == start || errno == ERANGE) {
+                    return nullptr;
+                }
+
+                start = skip_whitespace(end);
+                if (*start == ']') {    /* [num:num] or [:num] */
+                    break;
+                }
+            }
+
+            if (*start != ':') {
+                return nullptr;
+            }
+            /* [num:num: or [:num: or [num:: or [:: */
+            start = skip_whitespace(start, 1);
+            if (*start == ']') {    /* [num:num:] or [:num:] or [num::] or [::] */
+                break;
+            }
+
+            slice_step = std::strtoull(start, &end, 10);
+            if (end == start || errno == ERANGE) {
+                return nullptr;
+            }
+            start = skip_whitespace(end);
+            if (*start != ']') {
+                return nullptr;
+            }
+            /* [num:num:num] or [:num:num] or [num::num] or [::num] */
+        } while (false);
+
+        *path = start;
+        return std::unique_ptr<filter_base>(new array_slice_filter(slice_start, slice_end, slice_step));
+    }
+
+    /* index list */
+    std::vector<uint64_t> indices;
+    indices.push_back(first_num);
+    do {
+        first_num = std::strtoull(start, &end, 10);
+        if (end == start || errno == ERANGE) {
+            return nullptr;
+        }
+
+        indices.push_back(first_num);
+        start = skip_whitespace(end);
+        if (*start == ']') {
+            break;
+        }
+        if (*start != ',') {
+            return nullptr;
+        }
+        start = skip_whitespace(start, 1);
+    } while (true);
+
+    *path = start;
+    return std::unique_ptr<filter_base>(new array_multi_filter(std::move(indices)));
+}
+
+static std::unique_ptr<filter_base> parse_filter(const char *path)
+{
+    parser_state state = parser_state::start;
+    const char *last_handle_pos = path;
+    std::unique_ptr<filter_base> sentry(new sentry_filter());
+    filter_base *cur = sentry.get();
+
+    while (*path) {
+        bool handled = last_handle_pos == path;
+        path = skip_whitespace(path);
+        if (handled) {
+            last_handle_pos = path;
+            if (*path == '\0') {
+                break;
+            }
+        }
+
+        char c = *path;
+rerun:
+        switch (state) {
+            case parser_state::start: {
+                if (c == '$') {
+                    state = parser_state::start_dollar;
+                    break;
+                }
+                state = parser_state::dot_parse_object;
+                goto rerun;
+            }
+
+            case parser_state::start_dollar: {
+                if (c == '.') {
+                    state = parser_state::one_dot;
+                } else if (c == '[') {
+                    state = parser_state::start_bracket;
+                } else {
+                    return nullptr;
+                }
+                break;
+            }
+
+            case parser_state::one_dot: {
+                if (c == '.') {
+                    state = parser_state::two_dot;
+                    break;
+                } else if (c == '*') {
+                    state = parser_state::dot_wildcard;
+                    goto rerun;
+                } else {
+                    state = parser_state::dot_parse_object;
+                    goto rerun;
+                }
+            }
+
+            case parser_state::two_dot: {
+                cur = cur->set_next_filter(std::unique_ptr<filter_base>(new recursive_filter()));
+
+                if (c == '*') {
+                    state = parser_state::dot_wildcard;
+                    goto rerun;
+                } else if (c == '[') {
+                    state = parser_state::start_bracket;
+                    break;
+                } else {
+                    state = parser_state::dot_parse_object;
+                    goto rerun;
+                }
+            }
+
+            case parser_state::start_bracket: {
+                if (c == '*') {
+                    state = parser_state::bracket_wildcard;
+                    goto rerun;
+                } else if (c == '\'') {
+                    state = parser_state::bracket_parse_object;
+                    goto rerun;
+                } else {
+                    auto filter = parse_array_index_or_script(&path);
+                    if (filter) {
+                        cur = cur->set_next_filter(std::move(filter));
+                        state = parser_state::check_end_bracket;
+                        goto rerun;
+                    } else {
+                        return nullptr;
                     }
                 }
             }
-        }
-    }
-};
 
-/**
- * filter array. syntax: [number] in any notation. num should be positive.
- */
-class array_filter : public filter_base
-{
-    const uint64_t index;
+            case parser_state::check_end_bracket: {
+                if (*path != ']') {     // goto rerun, so value of `c` did not update.
+                    return nullptr;
+                }
 
-public:
-    explicit array_filter(uint64_t i) noexcept : index(i) { }
+                last_handle_pos = ++path;
+                state = parser_state::end_bracket;
+                continue;
+            }
 
-protected:
-    void do_filter(JToken &token, std::vector<JToken *> &result, bool single) noexcept override
-    {
-        if (token.GetType() != JsonType::Array) {
-            return;
-        }
+            case parser_state::end_bracket: {
+                if (c == '.') {
+                    state = parser_state::one_dot;
+                } else if (c == '[') {
+                    state = parser_state::start_bracket;
+                } else {
+                    return nullptr;
+                }
+                break;
+            }
 
-        auto &array = static_cast<JArray &>(token);   // NOLINT;
-        auto value = array.GetValue(index);
-        if (value) {
-            filter_next_or_end(*value, result, single);
-        }
-    }
-};
-
-/**
- * filter array with index set. syntax: [num1,num2,...] in any notation. nums should be positive.
- */
-class array_multi_filter : public filter_base
-{
-    const std::vector<uint64_t> index_list;
-
-public:
-    explicit array_multi_filter(std::vector<uint64_t> &&idx) noexcept : index_list(std::move(idx)) { }
-
-protected:
-    void do_filter(JToken &token, std::vector<JToken *> &result, bool single) noexcept override
-    {
-        if (token.GetType() != JsonType::Array) {
-            return;
-        }
-
-        auto &array = static_cast<JArray &>(token);   // NOLINT;
-        for (auto index : index_list) {
-            auto value = array.GetValue(index);
-            if (value) {
-                filter_next_or_end(*value, result, single);
-                if (single && !result.empty()) {
-                    return;
+            case parser_state::dot_parse_object: {
+                auto filter = parse_dot_object_key(&path);
+                if (filter) {
+                    cur = cur->set_next_filter(std::move(filter));
+                    last_handle_pos = path;
+                    state = parser_state::dot_continue;
+                    continue;
+                } else {
+                    return nullptr;
                 }
             }
-        }
-    }
-};
 
-/**
- * filter array with slice index. syntax: [start:end:step] in any notation.
- */
-class array_slice_filter : public filter_base
-{
-    const int64_t start;
-    const int64_t end;
-    const uint64_t step;
-
-public:
-    explicit array_slice_filter(int64_t s = 0, uint64_t st = 1, int64_t e = std::numeric_limits<int64_t>::max()) noexcept
-            : start(s), end(e), step(st > 0 ? st : 1) { }
-
-protected:
-    void do_filter(JToken &token, std::vector<JToken *> &result, bool single) noexcept override
-    {
-        if (token.GetType() != JsonType::Array) {
-            return;
-        }
-
-        auto &array = static_cast<JArray &>(token);   // NOLINT;
-        auto s = start;
-        if (s < 0) {
-            s += array.Size();
-            if (s < 0) {
-                s = 0;
+            case parser_state::dot_continue: {
+                if (c == '.') {
+                    state = parser_state::dot_one_dot;
+                } else if (c == '[') {
+                    state = parser_state::dot_start_bracket;
+                } else {
+                    return nullptr;
+                }
+                break;
             }
-        }
-        auto e = end;
-        if (e < 0) {
-            e += array.Size();
-            if (e <= 0) {
-                return;
-            }
-        } else if (e > array.Size()) {
-            e = array.Size();
-        }
-        if (s >= e) {
-            return;
-        }
 
-        for (auto i = static_cast<uint64_t>(s), j = static_cast<uint64_t>(e); i < j; i += step) {
-            auto value = array[i];
-            filter_next_or_end(*value, result, single);
-            if (single && !result.empty()) {
-                return;
-            }
-        }
-    }
-};
-
-/**
- * wildcard filter, can be used to filter array or object. syntax: [*] in any-notation.
- */
-class wildcard_filter : public filter_base
-{
-protected:
-    void do_filter(JToken &token, std::vector<JToken *> &result, bool single) noexcept override
-    {
-        if (token.GetType() == JsonType::Object) {
-            auto &obj = static_cast<JObject &>(token);  // NOLINT
-            for (auto &property : obj) {
-                filter_next_or_end(*property.second, result, single);
-                if (single && !result.empty()) {
-                    return;
+            case parser_state::dot_one_dot: {
+                if (c == '.') {
+                    state = parser_state::dot_two_dot;
+                    break;
+                } else if (c == '*') {
+                    state = parser_state::dot_wildcard;
+                    goto rerun;
+                } else {
+                    state = parser_state::dot_parse_object;
+                    goto rerun;
                 }
             }
-        } else if (token.GetType() == JsonType::Array) {
-            auto &array = static_cast<JArray &>(token); // NOLINT
-            for (auto &element : array) {
-                filter_next_or_end(*element, result, single);
-                if (single && !result.empty()) {
-                    return;
+
+            case parser_state::dot_two_dot: {
+                cur = cur->set_next_filter(std::unique_ptr<filter_base>(new recursive_filter()));
+
+                if (c == '*') {
+                    state = parser_state::dot_wildcard;
+                    goto rerun;
+                } else if (c == '[') {
+                    state = parser_state::dot_start_bracket;
+                    break;
+                } else {
+                    state = parser_state::dot_parse_object;
+                    goto rerun;
                 }
             }
+
+            case parser_state::dot_start_bracket: {
+                if (c == '*') {
+                    cur = cur->set_next_filter(std::unique_ptr<filter_base>(new array_wildcard_filter()));
+                    state = parser_state::dot_check_end_bracket;
+                    break;
+                }
+
+                auto filter = parse_array_index_or_script(&path);
+                if (filter) {
+                    cur = cur->set_next_filter(std::move(filter));
+                    state = parser_state::dot_check_end_bracket;
+                    goto rerun;
+                } else {
+                    return nullptr;
+                }
+            }
+
+            case parser_state::dot_check_end_bracket: {
+                if (*path != ']') {     // goto rerun. we should use current `*path` value.
+                    return nullptr;
+                }
+                last_handle_pos = ++path;
+                state = parser_state::dot_continue;
+                continue;
+            }
+
+            case parser_state::dot_wildcard: {
+                cur = cur->set_next_filter(std::unique_ptr<filter_base>(new object_wildcard_filter()));
+                last_handle_pos = ++path;
+                state = parser_state::dot_continue;
+                continue;
+            }
+
+            case parser_state::bracket_parse_object: {
+                auto filter = parse_bracket_object_key(&path);
+                if (filter) {
+                    cur = cur->set_next_filter(std::move(filter));
+                    state = parser_state::bracket_check_end_bracket;
+                    goto rerun;
+                } else {
+                    return nullptr;
+                }
+            }
+
+            case parser_state::bracket_start_bracket: {
+                if (c == '*') {
+                    state = parser_state::bracket_wildcard;
+                    goto rerun;
+                } else if (c == '\'') {
+                    state = parser_state::bracket_parse_object;
+                    goto rerun;
+                } else {
+                    auto filter = parse_array_index_or_script(&path);
+                    if (filter) {
+                        cur = cur->set_next_filter(std::move(filter));
+                        state = parser_state::bracket_check_end_bracket;
+                        goto rerun;
+                    } else {
+                        return nullptr;
+                    }
+                }
+            }
+
+            case parser_state::bracket_check_end_bracket: {
+                if (*path != ']') {     // goto rerun. value of `c` is out of date.
+                    return nullptr;
+                }
+
+                last_handle_pos = ++path;
+                state = parser_state::bracket_end_bracket;
+                continue;
+            }
+
+            case parser_state::bracket_end_bracket: {
+                if (c == '[') {
+                    state = parser_state::bracket_start_bracket;
+                    break;
+                } else {
+                    return nullptr;
+                }
+            }
+
+            case parser_state::bracket_wildcard: {
+                cur = cur->set_next_filter(std::unique_ptr<filter_base>(new wildcard_filter()));
+                state = parser_state::bracket_check_end_bracket;
+                break;
+            }
         }
+
+        ++path;
     }
-};
 
-/**
- * filter by script expression, not support currently. syntax: [(expr)]
- */
-class script_expr_filter : public filter_base
+    if (last_handle_pos != path) {
+        return nullptr;
+    }
+
+    return sentry->fetch_next_filter();
+}
+
+json_token *json::select_token(json_token &token, const char *path)
 {
-    //
-};
+    auto filter = parse_filter(path);
+    if (!filter) {
+        return nullptr;
+    }
 
-/**
- * filter array by test each child in array. syntax: [?(expr)]
- */
-class array_filter_script : public filter_base
+    std::vector<json_token *> result;
+    filter->filter(token, result, true);
+    if (result.empty()) {
+        return nullptr;
+    }
+    return result.front();
+}
+
+std::vector<json_token *> json::select_tokens(json_token &token, const char *path)
 {
-    //
-};
+    auto filter = parse_filter(path);
+    if (!filter) {
+        return nullptr;
+    }
 
+    std::vector<json_token *> result;
+    filter->filter(token, result, false);
+    return result;
 }

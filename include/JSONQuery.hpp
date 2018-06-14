@@ -9,30 +9,30 @@
 
 namespace json {
 
-//const JToken *select_token(const JToken &token, const char *path);
+//const json_token *select_token(const json_token &token, const char *path);
 //
-//const JToken *select_token(const JToken &token, const std::string &path)
+//const json_token *select_token(const json_token &token, const std::string &path)
 //{
 //    return select_token(token, path.c_str());
 //}
 
-JToken *select_token(JToken &token, const char *path);
+json_token *select_token(json_token &token, const char *path);
 
-JToken *select_token(JToken &token, const std::string &path)
+json_token *select_token(json_token &token, const std::string &path)
 {
     return select_token(token, path.c_str());
 }
 
-//std::vector<const JToken *> select_tokens(const JToken &token, const char *path);
+//std::vector<const json_token *> select_tokens(const json_token &token, const char *path);
 //
-//std::vector<const JToken *> select_tokens(const JToken &token, const std::string &path)
+//std::vector<const json_token *> select_tokens(const json_token &token, const std::string &path)
 //{
 //    return select_tokens(token, path.c_str());
 //}
 
-std::vector<JToken *> select_tokens(JToken &token, const char *path);
+std::vector<json_token *> select_tokens(json_token &token, const char *path);
 
-std::vector<JToken *> select_tokens(JToken &token, const std::string &path)
+std::vector<json_token *> select_tokens(json_token &token, const std::string &path)
 {
     return select_tokens(token, path.c_str());
 }
