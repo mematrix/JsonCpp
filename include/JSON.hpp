@@ -12,82 +12,82 @@
 
 namespace json {
 
-class JToken;
+class json_token;
 
-enum class JsonFormatOption
+enum class json_format_option
 {
-    NoFormat,
-    IndentSpace,
-    IndentTab
+    no_format,
+    indent_space,
+    indent_tab
 };
 
 /**
- * parse c-style json string to {@code JToken}.
+ * parse c-style json string to {@code json_token}.
  * @param json c-style json format string.
  * @param error out param, a code to identify parse error, 0 means no error. {@code nullptr} can be passed.
- * @return if no error occurs, return a {@code JToken} pointer, use {@code JToken::GetType} to determine
+ * @return if no error occurs, return a {@code json_token} pointer, use {@code json_token::get_type} to determine
  * the actual json type. return a default empty {@code std::unique_ptr} object if any errors occur.
  */
-std::unique_ptr<JToken> Parse(const char *json, int *error);
+std::unique_ptr<json_token> parse(const char *json, int *error);
 
 /**
- * parse json string to {@code JToken}.
+ * parse json string to {@code json_token}.
  * @param json json format string.
  * @param error out param, a code to identify parse error, 0 means no error. {@code nullptr} can be passed.
- * @return if no error occurs, return a {@code JToken} pointer, use {@code JToken::GetType} to determine
+ * @return if no error occurs, return a {@code json_token} pointer, use {@code json_token::get_type} to determine
  * the actual json type. return a default empty {@code std::unique_ptr} object if any errors occur.
  */
-std::unique_ptr<JToken> Parse(const std::string &json, int *error)
+std::unique_ptr<json_token> parse(const std::string &json, int *error)
 {
-    return Parse(json.c_str(), error);
+    return parse(json.c_str(), error);
 }
 
 /**
  * format json instance.
  * @param token a json instance to be formatted.
  * @param option format indention option.
- * @param indention indention count, used only when option is {@code JsonFormatOption::IndentSpace} or
- * {@code JsonFormatOption::IndentTab}.
+ * @param indention indention count, used only when option is {@code json_format_option::indent_space} or
+ * {@code json_format_option::indent_tab}.
  * @return formatted string.
  */
-std::string ToString(const JToken &token, JsonFormatOption option = JsonFormatOption::NoFormat, unsigned indention = 1);
+std::string to_string(const json_token &token, json_format_option option = json_format_option::no_format, unsigned indention = 1);
 
 /**
  * get a human friend description of error code.
  * @param error error code.
  * @return an error description.
  */
-const char *GetErrorInfo(int error) noexcept;
+const char *get_error_info(int error) noexcept;
 
 /**
  * copy construct a json token object.
  * @param token source object.
  * @return new object copied from source.
  */
-std::unique_ptr<JToken> clone(const JToken &token);
+// std::unique_ptr<json_token> clone(const json_token &token);
 
 
-enum class JsonType : int
+enum class json_type : int
 {
-    Object = 0,
-    Array,
-    String,
-    Number,
-    Bool,
-    Null
+    object = 0,
+    array,
+    string,
+    number,
+    boolean,
+    null
 };
 
 
 /**
  * a virtual base class, supporting to box the various json data type
- * such as {@code JArray}, {@code JObject}, etc.
+ * such as {@code json_array}, {@code json_object}, etc.
  */
-class JToken
+class json_token
 {
 public:
-    virtual JsonType GetType() const noexcept = 0;
+    virtual json_type get_type() const noexcept = 0;
 
-    virtual ~JToken() = default;
+    virtual ~json_token() = default;
 };
 
 
@@ -95,199 +95,189 @@ public:
  * json object type. An unordered set of properties mapping a string to an instance,
  * from the JSON "object" production.
  */
-class JObject : public JToken
+class json_object : public json_token
 {
-    using Container = std::map<std::string, std::unique_ptr<JToken>>;
+    using container = std::map<std::string, std::unique_ptr<json_token>>;
 
 public:
-    JObject() = default;
+    json_object() = default;
 
-    JsonType GetType() const noexcept override { return TYPE; }
+    json_type get_type() const noexcept override { return TYPE; }
 
-    size_t Size() const
+    size_t size() const
     {
         return children.size();
     }
 
     // use to access
-    JToken *operator[](const std::string &property)
+    json_token *operator[](const std::string &property)
     {
-        return GetValue(property);
+        return get_value(property);
     }
 
-    const JToken *operator[](const std::string &property) const
+    const json_token *operator[](const std::string &property) const
     {
-        return GetValue(property);
+        return get_value(property);
     }
 
-    JToken *GetValue(const std::string &property)
+    json_token *get_value(const std::string &property)
     {
         auto r = children.find(property);
         return r == children.end() ? nullptr : r->second.get();
     }
 
-    const JToken *GetValue(const std::string &property) const
+    const json_token *get_value(const std::string &property) const
     {
         auto r = children.find(property);
         return r == children.end() ? nullptr : r->second.get();
     }
 
     // iterator
-    auto begin() noexcept -> Container::iterator
+    auto begin() noexcept -> container::iterator
     {
         return children.begin();
     }
 
-    auto begin() const noexcept -> Container::const_iterator
+    auto begin() const noexcept -> container::const_iterator
     {
         return children.begin();
     }
 
-    auto end() noexcept -> Container::iterator
+    auto end() noexcept -> container::iterator
     {
         return children.end();
     }
 
-    auto end() const noexcept -> Container::const_iterator
+    auto end() const noexcept -> container::const_iterator
     {
         return children.end();
     }
 
-    bool Put(const std::string &property, std::unique_ptr<JToken> &&value)
+    bool put(const std::string &property, std::unique_ptr<json_token> &&value)
     {
         return children.emplace(property, std::move(value)).second;
     }
 
-    bool Put(std::string &&property, std::unique_ptr<JToken> &&value)
+    bool put(std::string &&property, std::unique_ptr<json_token> &&value)
     {
         return children.emplace(property, std::move(value)).second;
     }
 
 private:
-    Container children;
+    container children;
 
 public:
-    static constexpr JsonType TYPE = JsonType::Object;
+    static constexpr json_type TYPE = json_type::object;
 };
 
 
 /**
  * json array type. An ordered list of instances, from the JSON "array" production.
  */
-class JArray : public JToken
+class json_array : public json_token
 {
-    using Container = std::vector<std::unique_ptr<JToken>>;
+    using container = std::vector<std::unique_ptr<json_token>>;
 
 public:
-    JArray() = default;
+    json_array() = default;
 
-    explicit JArray(const std::vector<const JToken *> &tokens) : children()
-    {
-        children.reserve(tokens.size());
-        for (auto token : tokens) {
-            if (token) {
-                children.emplace_back(clone(*token));
-            }
-        }
-    }
+    json_type get_type() const noexcept override { return TYPE; }
 
-    JsonType GetType() const noexcept override { return TYPE; }
-
-    void Reserve(size_t capacity)
+    void reserve(size_t capacity)
     {
         children.reserve(capacity);
     }
 
-    size_t Size() const
+    size_t size() const
     {
         return children.size();
     }
 
     // use to access
-    JToken *operator[](size_t index)
+    json_token *operator[](size_t index)
     {
         return children[index].get();
     }
 
-    const JToken *operator[](size_t index) const
+    const json_token *operator[](size_t index) const
     {
         return children[index].get();
     }
 
-    JToken *GetValue(size_t index)
+    json_token *get_value(size_t index)
     {
-        return index >= Size() ? nullptr : children[index].get();
+        return index >= size() ? nullptr : children[index].get();
     }
 
-    const JToken *GetValue(size_t index) const
+    const json_token *get_value(size_t index) const
     {
-        return index >= Size() ? nullptr : children[index].get();
+        return index >= size() ? nullptr : children[index].get();
     }
 
     // iterator
-    auto begin() noexcept -> Container::iterator
+    auto begin() noexcept -> container::iterator
     {
         return children.begin();
     }
 
-    auto begin() const noexcept -> Container::const_iterator
+    auto begin() const noexcept -> container::const_iterator
     {
         return children.begin();
     }
 
-    auto end() noexcept -> Container::iterator
+    auto end() noexcept -> container::iterator
     {
         return children.end();
     }
 
-    auto end() const noexcept -> Container::const_iterator
+    auto end() const noexcept -> container::const_iterator
     {
         return children.end();
     }
 
-    void Add(std::unique_ptr<JToken> &&element)
+    void add(std::unique_ptr<json_token> &&element)
     {
         children.emplace_back(std::move(element));
     }
 
 private:
-    Container children;
+    container children;
 
 public:
-    static constexpr JsonType TYPE = JsonType::Array;
+    static constexpr json_type TYPE = json_type::array;
 };
 
 
 /**
  * json string value. A string of Unicode code points, from the JSON "string" production.
  */
-class JStringValue : public JToken
+class json_string_value : public json_token
 {
 public:
-    JStringValue() = default;
+    json_string_value() = default;
 
-    explicit JStringValue(const std::string &v) : value(v) { }
+    explicit json_string_value(const std::string &v) : str_value(v) { }
 
-    explicit JStringValue(std::string &&v) noexcept : value(std::move(v)) { }
+    explicit json_string_value(std::string &&v) noexcept : str_value(std::move(v)) { }
 
-    JsonType GetType() const noexcept override { return TYPE; }
+    json_type get_type() const noexcept override { return TYPE; }
 
     // use to access value
-    std::string &Value()
+    std::string &value()
     {
-        return value;
+        return str_value;
     }
 
-    const std::string &Value() const
+    const std::string &value() const
     {
-        return value;
+        return str_value;
     }
 
 private:
-    std::string value;
+    std::string str_value;
 
 public:
-    static constexpr JsonType TYPE = JsonType::String;
+    static constexpr json_type TYPE = json_type::string;
 };
 
 
@@ -295,67 +285,67 @@ public:
  * json number value. An arbitrary-precision, base-10 decimal number value,
  * from the JSON "number" production
  */
-class JNumberValue : public JToken
+class json_number_value : public json_token
 {
 public:
-    JNumberValue() : isFloat(false), value{.intValue = 0} { }
+    json_number_value() : is_float(false), value{.int_value = 0} { }
 
-    explicit JNumberValue(int64_t v) : isFloat(false), value{.intValue = v} { }
+    explicit json_number_value(int64_t v) : is_float(false), value{.int_value = v} { }
 
-    explicit JNumberValue(double v) : isFloat(true), value{.floatValue = v} { }
+    explicit json_number_value(double v) : is_float(true), value{.float_value = v} { }
 
-    JsonType GetType() const noexcept override { return TYPE; }
+    json_type get_type() const noexcept override { return TYPE; }
 
     // access
     explicit operator int64_t() const
     {
-        return isFloat ? static_cast<int64_t>(value.floatValue) : value.intValue;
+        return is_float ? static_cast<int64_t>(value.float_value) : value.int_value;
     }
 
     explicit operator double() const
     {
-        return isFloat ? value.floatValue : value.intValue;
+        return is_float ? value.float_value : value.int_value;
     }
 
-    void SetValue(int64_t iv)
+    void set_value(int64_t iv)
     {
-        isFloat = false;
-        value.intValue = iv;
+        is_float = false;
+        value.int_value = iv;
     }
 
-    void SetValue(double dv)
+    void set_value(double dv)
     {
-        isFloat = true;
-        value.floatValue = dv;
+        is_float = true;
+        value.float_value = dv;
     }
 
-    bool IsFloatValue() const
+    bool is_float_value() const
     {
-        return isFloat;
+        return is_float;
     }
 
 private:
-    bool isFloat;
+    bool is_float;
     union
     {
-        int64_t intValue;
-        double floatValue;
+        int64_t int_value;
+        double float_value;
     } value;
 
 public:
-    static constexpr JsonType TYPE = JsonType::Number;
+    static constexpr json_type TYPE = json_type::number;
 };
 
 
 /**
  * json bool value. A "true" or "false" value, from the JSON "true" or "false" productions.
  */
-class JBoolValue : public JToken
+class json_bool_value : public json_token
 {
 public:
-    explicit JBoolValue(bool v = false) noexcept : value(v) { }
+    explicit json_bool_value(bool v = false) noexcept : value(v) { }
 
-    JsonType GetType() const noexcept override { return TYPE; }
+    json_type get_type() const noexcept override { return TYPE; }
 
     explicit operator bool() const noexcept
     {
@@ -366,20 +356,20 @@ private:
     bool value;
 
 public:
-    static constexpr JsonType TYPE = JsonType::Bool;
+    static constexpr json_type TYPE = json_type::boolean;
 };
 
 
 /**
  * json null value. A JSON "null" production.
  */
-class JNullValue : public JToken
+class json_null_value : public json_token
 {
 public:
-    JsonType GetType() const noexcept override { return TYPE; }
+    json_type get_type() const noexcept override { return TYPE; }
 
 public:
-    static constexpr JsonType TYPE = JsonType::Null;
+    static constexpr json_type TYPE = json_type::null;
 };
 
 }

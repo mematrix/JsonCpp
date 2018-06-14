@@ -14,7 +14,7 @@ namespace json {
 template<typename T>
 struct deserialize_impl
 {
-    static void deserialize(T &t, const JToken &token)
+    static void deserialize(T &t, const json_token &token)
     {
         std::cerr << "deserialize impl type: " << typeid(T).name() << std::endl;
         //static_assert(false);
@@ -28,7 +28,7 @@ struct deserialize_dispatcher
 };
 
 template<typename T>
-void deserialize(T &t, const JToken &token)
+void deserialize(T &t, const json_token &token)
 {
     using handler = typename deserialize_dispatcher<T>::handler;
     handler::deserialize(t, token);
@@ -37,14 +37,14 @@ void deserialize(T &t, const JToken &token)
 template<typename T>
 struct deserialize_arithmetic_impl
 {
-    static void deserialize(T &t, const JToken &token)
+    static void deserialize(T &t, const json_token &token)
     {
-        if (token.GetType() != JsonType::Number) {
+        if (token.get_type() != json_type::number) {
             return;
         }
 
-        const JNumberValue &num = static_cast<const JNumberValue &>(token); // NOLINT
-        if (num.IsFloatValue()) {
+        const json_number_value &num = static_cast<const json_number_value &>(token); // NOLINT
+        if (num.is_float_value()) {
             t = static_cast<T>((double)num);
         } else {
             t = static_cast<T>((int64_t)num);
@@ -55,13 +55,13 @@ struct deserialize_arithmetic_impl
 template<>
 struct deserialize_arithmetic_impl<bool>
 {
-    static void deserialize(bool &t, const JToken &token)
+    static void deserialize(bool &t, const json_token &token)
     {
-        if (token.GetType() != JsonType::Bool) {
+        if (token.get_type() != json_type::boolean) {
             return;
         }
 
-        t = (bool)static_cast<const JBoolValue &>(token); // NOLINT
+        t = (bool)static_cast<const json_bool_value &>(token); // NOLINT
     }
 };
 
@@ -74,15 +74,15 @@ struct deserialize_dispatcher<T, true>
 template<typename T>
 struct deserialize_impl<std::map<std::string, T>>
 {
-    static void deserialize(std::map<std::string, T> &t, const JToken &token)
+    static void deserialize(std::map<std::string, T> &t, const json_token &token)
     {
         using handler = typename deserialize_dispatcher<T>::handler;
 
-        if (token.GetType() != JsonType::Object) {
+        if (token.get_type() != json_type::object) {
             return;
         }
 
-        const JObject &obj = static_cast<const JObject &>(token);
+        const json_object &obj = static_cast<const json_object &>(token);
         for (const auto &property : obj) {
             T value = T();
             handler::deserialize(value, *property.second);
@@ -94,15 +94,15 @@ struct deserialize_impl<std::map<std::string, T>>
 template<typename T>
 struct deserialize_impl<std::vector<T>>
 {
-    static void deserialize(std::vector<T> &t, const JToken &token)
+    static void deserialize(std::vector<T> &t, const json_token &token)
     {
         using handler = typename deserialize_dispatcher<T>::handler;
 
-        if (token.GetType() != JsonType::Array) {
+        if (token.get_type() != json_type::array) {
             return;
         }
 
-        const JArray &ary = static_cast<const JArray &>(token);
+        const json_array &ary = static_cast<const json_array &>(token);
         for (const auto &element : ary) {
             T value = T();
             handler::deserialize(value, *element);
@@ -114,15 +114,15 @@ struct deserialize_impl<std::vector<T>>
 template<typename T>
 struct deserialize_impl<std::list<T>>
 {
-    static void deserialize(std::list<T> &t, const JToken &token)
+    static void deserialize(std::list<T> &t, const json_token &token)
     {
         using handler = typename deserialize_dispatcher<T>::handler;
 
-        if (token.GetType() != JsonType::Array) {
+        if (token.get_type() != json_type::array) {
             return;
         }
 
-        const JArray &ary = static_cast<const JArray &>(token);
+        const json_array &ary = static_cast<const json_array &>(token);
         for (const auto &element : ary) {
             T value = T();
             handler::deserialize(value, *element);
@@ -134,16 +134,16 @@ struct deserialize_impl<std::list<T>>
 template<typename T, size_t N>
 struct deserialize_impl<T[N]>
 {
-    static void deserialize(T *t, const JToken &token)
+    static void deserialize(T *t, const json_token &token)
     {
         using handler = typename deserialize_dispatcher<T>::handler;
 
-        if (token.GetType() != JsonType::Array) {
+        if (token.get_type() != json_type::array) {
             return;
         }
 
-        const JArray &ary = static_cast<const JArray &>(token);
-        size_t count = ary.Size();
+        const json_array &ary = static_cast<const json_array &>(token);
+        size_t count = ary.size();
         count = count > N ? N : count;
         for (size_t i = 0; i < count; ++i) {
             handler::deserialize(t[i], *ary[i]);
@@ -154,32 +154,32 @@ struct deserialize_impl<T[N]>
 template<>
 struct deserialize_impl<std::string>
 {
-    static void deserialize(std::string &t, const JToken &token)
+    static void deserialize(std::string &t, const json_token &token)
     {
-        if (token.GetType() != JsonType::String) {
+        if (token.get_type() != json_type::string) {
             return;
         }
 
-        t = static_cast<const JStringValue &>(token).Value(); // NOLINT
+        t = static_cast<const json_string_value &>(token).value(); // NOLINT
     }
 };
 
 template<size_t N>
 struct deserialize_impl<char[N]>
 {
-    static void deserialize(char *t, const JToken &token)
+    static void deserialize(char *t, const json_token &token)
     {
         static_assert(N > 0);
 
-        if (token.GetType() == JsonType::Null) {
+        if (token.get_type() == json_type::null) {
             t[0] = '\0';
             return;
         }
-        if (token.GetType() != JsonType::String) {
+        if (token.get_type() != json_type::string) {
             return;
         }
 
-        auto &str = static_cast<const JStringValue &>(token).Value();
+        auto &str = static_cast<const json_string_value &>(token).value();
         size_t count = str.size();
         count = count > (N - 1) ? (N - 1) : count;
         std::memcpy(t, str.c_str(), count);
@@ -190,11 +190,11 @@ struct deserialize_impl<char[N]>
 template<typename T>
 struct deserialize_impl<std::unique_ptr<T>>
 {
-    static void deserialize(std::unique_ptr<T> &t, const JToken &token)
+    static void deserialize(std::unique_ptr<T> &t, const json_token &token)
     {
         using handler = typename deserialize_dispatcher<T>::handler;
 
-        if (token.GetType() == JsonType::Null) {
+        if (token.get_type() == json_type::null) {
             t = nullptr;
             return;
         }
@@ -207,11 +207,11 @@ struct deserialize_impl<std::unique_ptr<T>>
 template<typename T>
 struct deserialize_impl<std::shared_ptr<T>>
 {
-    static void deserialize(std::shared_ptr<T> &t, const JToken &token)
+    static void deserialize(std::shared_ptr<T> &t, const json_token &token)
     {
         using handler = typename deserialize_dispatcher<T>::handler;
 
-        if (token.GetType() == JsonType::Null) {
+        if (token.get_type() == json_type::null) {
             t = nullptr;
             return;
         }
@@ -230,11 +230,11 @@ struct deserialize_impl<std::shared_ptr<T>>
 #define DESERIALIZE_CLASS(type, ...) \
 template<> \
 struct deserialize_impl<type> { \
-    static void deserialize(type &t, const JToken &token) { \
+    static void deserialize(type &t, const json_token &token) { \
         static_assert(!std::is_const<type>::value); \
-        if (token.GetType() != JsonType::Object) { return; } \
-        const JObject &obj = static_cast<const JObject &>(token); /* NOLINT */ \
-        const JToken *v = nullptr; \
+        if (token.get_type() != json_type::object) { return; } \
+        const json_object &obj = static_cast<const json_object &>(token); /* NOLINT */ \
+        const json_token *v = nullptr; \
         (void)(0, ##__VA_ARGS__ ,0); \
     } \
 }
