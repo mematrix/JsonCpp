@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.3)
 
-set(JSONCPP_SOURCE JSON.cpp)
-set(FORCE_CLION_CODE_INSIGHT ../include/JSON.hpp ../include/JSONConvert.hpp ../include/JSONQuery.hpp)
+set(JSONCPP_SOURCE JSON.cpp JSONUtils.cpp)
+set(FORCE_CLION_CODE_INSIGHT ../include/JSON.hpp ../include/JSONConvert.hpp ../include/JSONQuery.hpp ../include/JSONUtils.h)
 
 option(BUILD_QUERY_SUPPORT "build json query support module" ON)
 if (BUILD_QUERY_SUPPORT)
