@@ -72,7 +72,7 @@ static std::unique_ptr<filter_base> parse_bracket_object_key(const char **path)
         }
 
         ++start;
-        auto key_str = read_json_string(&start, &code);
+        auto key_str = read_json_string(&start, &code, '\'');
         if (code != NO_ERROR) {
             return nullptr;
         }
@@ -95,6 +95,7 @@ static std::unique_ptr<filter_base> parse_bracket_object_key(const char **path)
         return nullptr;
     }
 
+    *path = start;
     return std::unique_ptr<filter_base>(new object_multi_filter(std::move(key_list)));
 }
 
@@ -530,7 +531,7 @@ std::vector<json_token *> json::select_tokens(json_token &token, const char *pat
 {
     auto filter = parse_filter(path);
     if (!filter) {
-        return nullptr;
+        return {};
     }
 
     std::vector<json_token *> result;

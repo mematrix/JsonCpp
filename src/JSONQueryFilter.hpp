@@ -54,7 +54,7 @@ public:
 
     std::unique_ptr<filter_base> fetch_next_filter() noexcept
     {
-        return next;
+        return std::move(next);
     }
 
     void filter(json_token &token, std::vector<json_token *> &result, bool single) noexcept

@@ -37,7 +37,7 @@ std::unique_ptr<json_token> parse(const char *json, int *error);
  * @return if no error occurs, return a {@code json_token} pointer, use {@code json_token::get_type} to determine
  * the actual json type. return a default empty {@code std::unique_ptr} object if any errors occur.
  */
-std::unique_ptr<json_token> parse(const std::string &json, int *error)
+inline std::unique_ptr<json_token> parse(const std::string &json, int *error)
 {
     return parse(json.c_str(), error);
 }

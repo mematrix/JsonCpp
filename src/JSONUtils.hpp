@@ -77,9 +77,10 @@ inline static bool assert_end_str(const char *str)
  * read json string type value. for string pattern detail see http://www.json.org/index.html
  * @param str in out param, c-style utf8 string.
  * @param error out param, if an error occurs, which value will be set.
+ * @param quote in param, quote character used in string syntax.
  * @return parsed value. or empty string if error occurs.
  */
-std::string read_json_string(const char **str, int *error);
+std::string read_json_string(const char **str, int *error, char quote = '\"');
 
 /**
  * parse number type string. for number pattern detail see http://www.json.org/index.html

@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <cstring>
+#include <sstream>
 #include "JSON.hpp"
 #include "JSONUtils.hpp"
 
@@ -230,7 +231,10 @@ static void format_string(const std::string &value, std::string &builder)
 static void format_number(const json_number_value &num, std::string &builder)
 {
     if (num.is_float_value()) {
-        builder.append(std::to_string((double)num));
+        std::ostringstream oss;
+        oss.precision(20);
+        oss << (double)num;
+        builder.append(oss.str());
     } else {
         builder.append(std::to_string((int64_t)num));
     }

@@ -52,14 +52,14 @@ static bool try_parse_hex_short(const char *str, uint16_t &result) noexcept
     return true;
 }
 
-std::string json::read_json_string(const char **str, int *error)
+std::string json::read_json_string(const char **str, int *error, char quote)
 {
     auto last_handle_pos = *str;
     bool escape = false;
     unsigned int count = 0;
 
     std::string ret;
-    for (auto tmp = last_handle_pos; *tmp != '\"'; ++tmp) {
+    for (auto tmp = last_handle_pos; *tmp != quote; ++tmp) {
         if (*tmp == '\\') {
             escape = true;
             ++tmp;
@@ -78,6 +78,7 @@ std::string json::read_json_string(const char **str, int *error)
             }
 
             switch (*tmp) {
+                case '\'':  /* handle case that quote == '\'' */
                 case '\"':
                 case '\\':
                 case '/':
