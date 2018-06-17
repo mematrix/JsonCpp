@@ -35,4 +35,4 @@
 
 ### Jetbrains Clion cmake build
 
-cmake-build-debug/
+cmake-build-*/

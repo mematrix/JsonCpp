@@ -160,7 +160,7 @@ public:
 
     bool put(std::string &&property, std::unique_ptr<json_token> &&value)
     {
-        return children.emplace(property, std::move(value)).second;
+        return children.emplace(std::move(property), std::move(value)).second;
     }
 
 private:
@@ -288,11 +288,11 @@ public:
 class json_number_value : public json_token
 {
 public:
-    json_number_value() : is_float(false), value{.int_value = 0} { }
+    json_number_value() : is_float(false) { value.int_value = 0; } // NOLINT
 
-    explicit json_number_value(int64_t v) : is_float(false), value{.int_value = v} { }
+    explicit json_number_value(int64_t v) : is_float(false) { value.int_value = v; } // NOLINT
 
-    explicit json_number_value(double v) : is_float(true), value{.float_value = v} { }
+    explicit json_number_value(double v) : is_float(true) { value.float_value = v; } // NOLINT
 
     json_type get_type() const noexcept override { return TYPE; }
 

@@ -230,13 +230,31 @@ static void format_string(const std::string &value, std::string &builder)
 
 static void format_number(const json_number_value &num, std::string &builder)
 {
+    char tmp[64];
     if (num.is_float_value()) {
-        std::ostringstream oss;
-        oss.precision(20);
-        oss << (double)num;
-        builder.append(oss.str());
+        auto count = sprintf(tmp, "%.16f", (double)num);
+        if (count <= 0 || !(tmp[0] == '-' || std::isdigit(tmp[0]))) {
+            return;
+        }
+        int max = (tmp[0] == '-' ? 1 : 0) + 18;   // precision == 16
+        max = max > count ? count : max;
+        char *end = tmp;
+        while (*end != '.' && end < tmp + max) {
+            ++end;
+        }
+        if (*end == '.') {
+            char *zero_pos = ++end;
+            while (*zero_pos != '0' && zero_pos <= tmp + max) {
+                end = zero_pos++;
+            }
+        }
+        builder.append(tmp, end - tmp + 1);
     } else {
-        builder.append(std::to_string((int64_t)num));
+        auto count = sprintf(tmp, "%lld", (int64_t)num);
+        if (count <= 0) {
+            return;
+        }
+        builder.append(tmp, count);
     }
 }
 
@@ -258,7 +276,7 @@ static void format_object(const json_object &obj, std::string &builder, char ind
         builder.pop_back();
         builder.push_back('\n');
     }
-    builder.append(base * level, indent);
+    builder.append(count - base, indent);
     builder.push_back('}');
 }
 
@@ -276,7 +294,7 @@ static void format_array(const json_array &ary, std::string &builder, char inden
         builder.pop_back();
         builder.push_back('\n');
     }
-    builder.append(base * level, indent);
+    builder.append(count - base, indent);
     builder.push_back(']');
 }
 
@@ -370,9 +388,84 @@ void format_token(const json_token &token, std::string &builder)
     }
 }
 
+static uint64_t estimate_size(const json_token &token)
+{
+    uint64_t size = 0;
+    switch (token.get_type()) {
+        case json_type::object: {
+            size = 2;   // "{}".size();
+            const auto &obj = static_cast<const json_object &>(token); // NOLINT
+            for (auto &item : obj) {
+                size += item.first.size() + 4 + estimate_size(*item.second);    // 4: "\"\":,".size();
+            }
+            break;
+        }
+        case json_type::array: {
+            size = 2;   // "[]".size();
+            const auto &array = static_cast<const json_array &>(token); // NOLINT
+            for (auto &item : array) {
+                size += estimate_size(*item) + 1;   // 1: ",".size();
+            }
+            break;
+        }
+        case json_type::string:
+            return static_cast<const json_string_value &>(token).value().size() + 7;    // NOLINT
+        case json_type::number:
+            return static_cast<const json_number_value &>(token).is_float_value() ? 20 : 12;    // NOLINT
+        case json_type::boolean:
+            return 5;
+        case json_type::null:
+            return 4;
+    }
+
+    return size;
+}
+
+static uint64_t estimate_size(const json_token &token, unsigned indent, unsigned level)
+{
+    uint64_t size = 0;
+    switch (token.get_type()) {
+        case json_type::object: {
+            auto count = indent * (level + 1);
+            size = 3 + count - indent;  // 3: "{\n}".size();
+            const auto &obj = static_cast<const json_object &>(token); // NOLINT
+            for (auto &item : obj) {
+                size += item.first.size() + count + 6 + estimate_size(*item.second, indent, level + 1);    // 4: "\"\": ,\n".size();
+            }
+            break;
+        }
+        case json_type::array: {
+            auto count = indent * (level + 1);
+            size = 2 + count - indent;
+            const auto &array = static_cast<const json_array &>(token); // NOLINT
+            for (auto &item : array) {
+                size += count + estimate_size(*item) + 2;   // 2: ",\n".size();
+            }
+            break;
+        }
+        case json_type::string:
+            return static_cast<const json_string_value &>(token).value().size() + 7;    // NOLINT
+        case json_type::number:
+            return static_cast<const json_number_value &>(token).is_float_value() ? 20 : 12;    // NOLINT
+        case json_type::boolean:
+            return 5;
+        case json_type::null:
+            return 4;
+    }
+
+    return size;
+}
+
 std::string json::to_string(const json_token &token, json_format_option option, unsigned int indention)
 {
     std::string builder;
+    if (option == json_format_option::no_format) {
+        auto size = estimate_size(token);
+        builder.reserve(size);
+    } else {
+        auto size = estimate_size(token, indention, 0);
+        builder.reserve(size);
+    }
     switch (option) {
         case json_format_option::indent_space:
             format_token(token, builder, ' ', indention, 0);
