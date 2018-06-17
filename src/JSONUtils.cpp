@@ -6,26 +6,35 @@
 #include <cmath>
 #include "JSONUtils.hpp"
 
-int unicode_to_utf8(unsigned short unicode_char, char *utf8_str) noexcept
+int unicode_to_utf8(unsigned int unicode_char, char *utf8_str) noexcept
 {
-    if (unicode_char <= 0x007f) {
+    if (unicode_char <= 0x007fu) {
         // * U-00000000 - U-0000007F:  0xxxxxxx
         *utf8_str = static_cast<char>(unicode_char);
         return 1;
     }
 
-    if (unicode_char <= 0x07ff) {
+    if (unicode_char <= 0x07ffu) {
         // * U-00000080 - U-000007FF:  110xxxxx 10xxxxxx
-        utf8_str[1] = static_cast<char>((unicode_char & 0x3f) | 0x80);
-        utf8_str[0] = static_cast<char>(((unicode_char >> 6) & 0x1f) | 0xc0);
+        utf8_str[1] = static_cast<char>((unicode_char & 0x3fu) | 0x80u);
+        utf8_str[0] = static_cast<char>(((unicode_char >> 6u) & 0x1fu) | 0xc0u);
         return 2;
     }
 
-    // * U-00000800 - U-0000FFFF:  1110xxxx 10xxxxxx 10xxxxxx
-    utf8_str[2] = static_cast<char>((unicode_char & 0x3f) | 0x80);
-    utf8_str[1] = static_cast<char>(((unicode_char >> 6) & 0x3f) | 0x80);
-    utf8_str[0] = static_cast<char>(((unicode_char >> 12) & 0x0f) | 0xe0);
-    return 3;
+    if (unicode_char <= 0x0000ffffu) {
+        // * U-00000800 - U-0000FFFF:  1110xxxx 10xxxxxx 10xxxxxx
+        utf8_str[2] = static_cast<char>((unicode_char & 0x3fu) | 0x80u);
+        utf8_str[1] = static_cast<char>(((unicode_char >> 6u) & 0x3fu) | 0x80u);
+        utf8_str[0] = static_cast<char>(((unicode_char >> 12u) & 0x0fu) | 0xe0u);
+        return 3;
+    }
+
+    // * U-00010000 - U-0010FFFF: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+    utf8_str[3] = static_cast<char>((unicode_char & 0x3fu) | 0x80u);
+    utf8_str[2] = static_cast<char>(((unicode_char >> 6u) & 0x3fu) | 0x80u);
+    utf8_str[1] = static_cast<char>(((unicode_char >> 12u) & 0x3fu) | 0x80u);
+    utf8_str[0] = static_cast<char>(((unicode_char >> 18u) & 0x7u) | 0xf0u);
+    return 4;
 }
 
 
@@ -74,8 +83,8 @@ std::string json::read_json_string(const char **str, int *error, char quote)
             if (count != 0) {
                 ret.append(last_handle_pos, count);
                 count = 0;
-                last_handle_pos = tmp + 1;
             }
+            last_handle_pos = tmp + 1;
 
             switch (*tmp) {
                 case '\'':  /* handle case that quote == '\'' */
@@ -100,18 +109,35 @@ std::string json::read_json_string(const char **str, int *error, char quote)
                     ret.push_back('\t');
                     continue;
                 case 'u': {
-                    uint16_t unicode;
-                    if (!try_parse_hex_short(tmp + 1, unicode)) {
+                    uint16_t unicode_first;
+                    if (!try_parse_hex_short(tmp + 1, unicode_first)) {
                         *error = STRING_SYNTAX_ERROR;
                         return std::string();
                     }
+                    tmp += 4;
+                    uint32_t unicode = unicode_first;
+                    if (0xd800u <= unicode_first && unicode_first <= 0xdbffu) {
+                        // unicode extended characters
+                        uint16_t unicode_second;
+                        if (tmp[1] != '\\' || tmp[2] != 'u' || !try_parse_hex_short(tmp + 3, unicode_second)) {
+                            *error = STRING_SYNTAX_ERROR;
+                            return std::string();
+                        }
 
-                    char utf8[3];
+                        if (0xdc00u <= unicode_second && unicode_second <= 0xdfffu) {
+                            unicode = (((unicode_first - 0xd800u) << 10u) | (unicode_second - 0xdc00u)) + 0x010000u;
+                            tmp += 6;
+                        } else {
+                            *error = STRING_SYNTAX_ERROR;
+                            return std::string();
+                        }
+                    }
+
+                    char utf8[8];
                     auto len = unicode_to_utf8(unicode, utf8);
                     for (int i = 0; i < len; ++i) {
                         ret.push_back(utf8[i]);
                     }
-                    tmp += 4;
                     last_handle_pos = tmp + 1;
                     continue;
                 }
