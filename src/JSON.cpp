@@ -26,7 +26,7 @@ static std::unique_ptr<json_token> read_object(const char **object_str, int *err
 
     while (true) {
         if (!assert_equal(*str, '\"')) {
-            *error = OBJECT_SYNTAX_ERROR;
+            *error = OBJECT_KEY_SYNTAX_ERROR;
             return nullptr;
         }
         ++str;
@@ -37,7 +37,7 @@ static std::unique_ptr<json_token> read_object(const char **object_str, int *err
 
         str = skip_whitespace(str);
         if (!assert_equal(*str, ':')) {
-            *error = OBJECT_SYNTAX_ERROR;
+            *error = OBJECT_KV_SYNTAX_ERROR;
             return nullptr;
         }
         ++str;
@@ -254,7 +254,7 @@ static void format_number(const json_number_value &num, std::string &builder)
         if (count <= 0) {
             return;
         }
-        builder.append(tmp, count);
+        builder.append(tmp, static_cast<size_t>(count));
     }
 }
 
@@ -466,6 +466,7 @@ std::string json::to_string(const json_token &token, json_format_option option, 
         auto size = estimate_size(token, indention, 0);
         builder.reserve(size);
     }
+
     switch (option) {
         case json_format_option::indent_space:
             format_token(token, builder, ' ', indention, 0);
@@ -486,24 +487,28 @@ const char *json::get_error_info(int error) noexcept
             return "No error.";
         case STRING_PARSE_ERROR:
             return "String parse error, check the string format.";
-        case STRING_SYNTAX_ERROR:
-            return "String value syntax error, check if exists a wrong escape character or a control character.";
+        case STRING_UNICODE_SYNTAX_ERROR:
+            return "String unicode syntax error, check \\u part.";
+        case STRING_ESCAPE_SYNTAX_ERROR:
+            return "String escape syntax error.";
+        case STRING_CONTROL_CHAR_SYNTAX_ERROR:
+            return "Control character should not appear in string value";
         case OBJECT_PARSE_ERROR:
             return "Object parse error, check the object format.";
-        case OBJECT_SYNTAX_ERROR:
-            return "Object syntax error.";
+        case OBJECT_KEY_SYNTAX_ERROR:
+            return "Object key syntax error.";
+        case OBJECT_KV_SYNTAX_ERROR:
+            return "Object key-value syntax error, check whether there is a '.' character after the key.";
         case OBJECT_DUPLICATED_KEY:
             return "Duplicated key in object.";
         case ARRAY_PARSE_ERROR:
             return "Array parse error, check the array format.";
-        case NUMBER_FORMAT_ERROR:
-            return "Number format error.";
-        case NUMBER_INT_OVERFLOW:
-            return "Integer number overflow.";
+        case NUMBER_FRACTION_FORMAT_ERROR:
+            return "Number fraction part format error.";
+        case NUMBER_EXPONENT_FORMAT_ERROR:
+            return "Number exponent part format error.";
         case NUMBER_FLOAT_OVERFLOW:
             return "Float point number overflow.";
-        case NUMBER_FLOAT_UNDERFLOW:
-            return "Float point number underflow.";
         case UNEXPECTED_TOKEN:
             return "Unexpected token. Only support json standard primitive types.";
         case UNEXPECTED_END_CHAR:

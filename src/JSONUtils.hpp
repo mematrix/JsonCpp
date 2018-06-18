@@ -24,7 +24,7 @@ inline static const char *skip_whitespace(const char *str, unsigned int start)
     return skip_whitespace(str);
 }
 
-int unicode_to_utf8(unsigned short unicode_char, char *utf8_str) noexcept;
+int unicode_to_utf8(unsigned int unicode_char, char *utf8_str) noexcept;
 
 namespace json {
 
@@ -32,15 +32,17 @@ enum
 {
     NO_ERROR = 0,
     STRING_PARSE_ERROR,
-    STRING_SYNTAX_ERROR,
+    STRING_UNICODE_SYNTAX_ERROR,
+    STRING_ESCAPE_SYNTAX_ERROR,
+    STRING_CONTROL_CHAR_SYNTAX_ERROR,
     OBJECT_PARSE_ERROR,
-    OBJECT_SYNTAX_ERROR,
+    OBJECT_KEY_SYNTAX_ERROR,
+    OBJECT_KV_SYNTAX_ERROR,
     OBJECT_DUPLICATED_KEY,
     ARRAY_PARSE_ERROR,
-    NUMBER_FORMAT_ERROR,
-    NUMBER_INT_OVERFLOW,
+    NUMBER_FRACTION_FORMAT_ERROR,
+    NUMBER_EXPONENT_FORMAT_ERROR,
     NUMBER_FLOAT_OVERFLOW,
-    NUMBER_FLOAT_UNDERFLOW,
     UNEXPECTED_TOKEN,
     UNEXPECTED_END_CHAR
 };
@@ -50,8 +52,6 @@ union number_union
     int64_t int_value;
     double float_value;
 };
-
-constexpr static int64_t MaxCriticalValue = std::numeric_limits<int64_t>::max() / 10 - 1;
 
 
 inline static bool assert_equal(char a, char b)
