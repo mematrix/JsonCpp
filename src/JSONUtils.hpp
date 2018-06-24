@@ -92,6 +92,23 @@ std::string read_json_string(const char **str, int *error, char quote = '\"');
  */
 bool read_json_number(const char **number_str, int *error, number_union &number);
 
+/**
+ * double to ascii string. buffer size must be greater than 25.
+ * @param value double value to format.
+ * @param buffer buffer to place the string (not include the end '\0').
+ * @param max_decimal_places max decimal count after point.
+ * @return pointer to the next character in the buffer after the format-string.
+ */
+char* dtoa(double value, char* buffer, int max_decimal_places = 324);
+
+/**
+ * int64 value to ascii string. buffer size should be enough to place the format-string (not include '\0').
+ * @param value 64-bit integer value to format.
+ * @param buffer buffer to place the format-string.
+ * @return pointer to the next character in the buffer after the format-string.
+ */
+char* i64toa(int64_t value, char* buffer);
+
 }
 
 #endif //CPPPARSER_JSONUTILS_H

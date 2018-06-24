@@ -230,31 +230,27 @@ static void format_string(const std::string &value, std::string &builder)
 
 static void format_number(const json_number_value &num, std::string &builder)
 {
+    constexpr uint64_t ExponentMask = 0x7FF0000000000000;
+
     char tmp[64];
     if (num.is_float_value()) {
-        auto count = sprintf(tmp, "%.16f", (double)num);
-        if (count <= 0 || !(tmp[0] == '-' || std::isdigit(tmp[0]))) {
+        auto v = (double)num;
+        union
+        {
+            double d;
+            uint64_t i64;
+        } u = {v};
+        if ((u.i64 & ExponentMask) == ExponentMask) {
+            builder.append("0.0");      // todo: add nan and inf support
             return;
         }
-        int max = (tmp[0] == '-' ? 1 : 0) + 18;   // precision == 16
-        max = max > count ? count : max;
-        char *end = tmp;
-        while (*end != '.' && end < tmp + max) {
-            ++end;
-        }
-        if (*end == '.') {
-            char *zero_pos = ++end;
-            while (*zero_pos != '0' && zero_pos <= tmp + max) {
-                end = zero_pos++;
-            }
-        }
-        builder.append(tmp, end - tmp + 1);
+
+        auto end = dtoa(v, tmp);
+        builder.append(tmp, end - tmp);
     } else {
-        auto count = sprintf(tmp, "%lld", (int64_t)num);
-        if (count <= 0) {
-            return;
-        }
-        builder.append(tmp, static_cast<size_t>(count));
+        auto i = (int64_t)num;
+        auto end = i64toa(i, tmp);
+        builder.append(tmp, end - tmp);
     }
 }
 
