@@ -187,43 +187,46 @@ std::unique_ptr<json_token> json::parse(const char *json, int *error)
 }
 
 constexpr char hex_digit[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+constexpr char escape[256] = {
+#define Z16 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        //0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F
+        'u', 'u', 'u', 'u', 'u', 'u', 'u', 'u', 'b', 't', 'n', 'u', 'f', 'r', 'u', 'u', // 00
+        'u', 'u', 'u', 'u', 'u', 'u', 'u', 'u', 'u', 'u', 'u', 'u', 'u', 'u', 'u', 'u', // 10
+        0, 0, '"', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '/',                             // 20
+        Z16, Z16,                                                                       // 30~4F
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '\\', 0, 0, 0,                              // 50
+        Z16,                                                                            // 60
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'u',                               // 70
+        Z16, Z16, Z16, Z16, Z16, Z16, Z16, Z16                                          // 80~FF
+#undef Z16
+};
 
 static void format_string(const std::string &value, std::string &builder)
 {
+    auto str = value.c_str();
+    auto end = str + value.size();
+
     builder.push_back('\"');
-    for (auto c : value) {
-        switch (c) {
-            case '\"':
-            case '\\':
-            case '/':
-                builder.push_back('\\');
-                builder.push_back(c);
-                continue;
-            case '\b':
-                builder.append("\\b");
-                continue;
-            case '\f':
-                builder.append("\\f");
-                continue;
-            case '\n':
-                builder.append("\\n");
-                continue;
-            case '\r':
-                builder.append("\\r");
-                continue;
-            case '\t':
-                builder.append("\\t");
-                continue;
-            default: {
-                if (std::iscntrl(c)) {
-                    builder.append("\\u00");
-                    builder.push_back(hex_digit[(unsigned char)c >> 4u]);
-                    builder.push_back(hex_digit[(unsigned char)c & 0x0fu]);
-                } else {
-                    builder.push_back(c);
-                }
-            }
+    while (true) {
+        auto start = str;
+        while (!escape[static_cast<unsigned char>(*str)] && str < end) {
+            ++str;
         }
+        if (start != str) {
+            builder.append(start, end - start);
+        }
+        if (str == end) {
+            break;
+        }
+
+        builder.push_back('\\');
+        builder.push_back(escape[static_cast<unsigned char>(*str)]);
+        if (escape[static_cast<unsigned char>(*str)] == 'u') {
+            builder.append("00", 2);
+            builder.push_back(hex_digit[static_cast<unsigned char>(*str) >> 4u]);
+            builder.push_back(hex_digit[static_cast<unsigned char>(*str) & 0x0fu]);
+        }
+        ++str;
     }
     builder.push_back('\"');
 }
@@ -241,7 +244,7 @@ static void format_number(const json_number_value &num, std::string &builder)
             uint64_t i64;
         } u = {v};
         if ((u.i64 & ExponentMask) == ExponentMask) {
-            builder.append("0.0");      // todo: add nan and inf support
+            builder.append("0.0", 3);      // todo: add nan and inf support
             return;
         }
 
@@ -259,14 +262,14 @@ static void format_token(const json_token &token, std::string &builder, char ind
 static void format_object(const json_object &obj, std::string &builder, char indent, unsigned base, unsigned level)
 {
     size_t count = base * (level + 1);
-    builder.append("{\n");
+    builder.append("{\n", 2);
     if (obj.size() > 0) {
         for (const auto &property : obj) {
             builder.append(count, indent);
             format_string(property.first, builder);
-            builder.append(": ");
+            builder.append(": ", 2);
             format_token(*property.second, builder, indent, base, level + 1);
-            builder.append(",\n");
+            builder.append(",\n", 2);
         }
         builder.pop_back();
         builder.pop_back();
@@ -279,12 +282,12 @@ static void format_object(const json_object &obj, std::string &builder, char ind
 static void format_array(const json_array &ary, std::string &builder, char indent, unsigned base, unsigned level)
 {
     size_t count = base * (level + 1);
-    builder.append("[\n");
+    builder.append("[\n", 2);
     if (ary.size() > 0) {
         for (const auto &element : ary) {
             builder.append(count, indent);
             format_token(*element, builder, indent, base, level + 1);
-            builder.append(",\n");
+            builder.append(",\n", 2);
         }
         builder.pop_back();
         builder.pop_back();
@@ -311,14 +314,14 @@ void format_token(const json_token &token, std::string &builder, char indent, un
             break;
         case json_type::boolean: {
             if ((bool)static_cast<const json_bool_value &>(token)) { // NOLINT
-                builder.append("true");
+                builder.append("true", 4);
             } else {
-                builder.append("false");
+                builder.append("false", 5);
             }
             break;
         }
         case json_type::null: {
-            builder.append("null");
+            builder.append("null", 4);
             break;
         }
     }
@@ -371,22 +374,22 @@ void format_token(const json_token &token, std::string &builder)
             break;
         case json_type::boolean: {
             if ((bool)static_cast<const json_bool_value &>(token)) { // NOLINT
-                builder.append("true");
+                builder.append("true", 4);
             } else {
-                builder.append("false");
+                builder.append("false", 5);
             }
             break;
         }
         case json_type::null: {
-            builder.append("null");
+            builder.append("null", 4);
             break;
         }
     }
 }
 
-static uint64_t estimate_size(const json_token &token)
+static size_t estimate_size(const json_token &token)
 {
-    uint64_t size = 0;
+    size_t size = 0;
     switch (token.get_type()) {
         case json_type::object: {
             size = 2;   // "{}".size();
@@ -417,9 +420,9 @@ static uint64_t estimate_size(const json_token &token)
     return size;
 }
 
-static uint64_t estimate_size(const json_token &token, unsigned indent, unsigned level)
+static size_t estimate_size(const json_token &token, unsigned indent, unsigned level)
 {
-    uint64_t size = 0;
+    size_t size = 0;
     switch (token.get_type()) {
         case json_type::object: {
             auto count = indent * (level + 1);

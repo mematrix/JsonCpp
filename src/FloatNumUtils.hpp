@@ -14,11 +14,11 @@
 
 #if defined(_M_AMD64)
 #pragma intrinsic(_BitScanReverse64)
+#pragma intrinsic(_umul128)
 #else
 #pragma intrinsic(_BitScanReverse)
 #endif
 
-#pragma intrinsic(_umul128)
 #endif
 
 constexpr uint64_t const_exp(uint64_t b, int e)
@@ -117,11 +117,11 @@ struct diy_fp
 #else
         unsigned long index;
         if (f >> 32u) {
-            _BitScanReverse(&index, f >> 32u);
-            return {f << (31 - index), e - (31 - index)};
+            _BitScanReverse(&index, static_cast<uint32_t>(f >> 32u));
+            return {f << (31 - index), e - static_cast<int>(31 - index)};
         } else {
             _BitScanReverse(&index, static_cast<uint32_t>(f));
-            return {f << (63 - index), e - (63 - index)};
+            return {f << (63 - index), e - static_cast<int>(63 - index)};
         }
 #endif
 #elif defined(__GNUC__) && __GNUC__ >= 4

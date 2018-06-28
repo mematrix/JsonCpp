@@ -201,7 +201,7 @@ bool json::read_json_number(const char **number_str, int *error, number_union &n
         if (is_negative) {
             while (*str >= '0' && *str <= '9') {
                 if (base_number >= NegMaxCriticalValue) {
-                    if (base_number != NegMaxCriticalValue || str[1] > '8') {
+                    if (base_number != NegMaxCriticalValue || str[0] > '8') {
                         d = static_cast<double>(base_number);
                         use_double = true;
                         break;
@@ -215,7 +215,7 @@ bool json::read_json_number(const char **number_str, int *error, number_union &n
         } else {
             while (*str >= '0' && *str <= '9') {
                 if (base_number >= MaxCriticalValue) {
-                    if (base_number != MaxCriticalValue || str[1] > '5') {
+                    if (base_number != MaxCriticalValue || str[0] > '5') {
                         d = static_cast<double>(base_number);
                         use_double = true;
                         break;
